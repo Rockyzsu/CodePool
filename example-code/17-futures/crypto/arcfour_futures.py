@@ -43,4 +43,5 @@ if __name__ == '__main__':
         workers = int(sys.argv[1])
     else:
         workers = None
+    print(workers)
     main(workers)

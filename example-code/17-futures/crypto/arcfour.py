@@ -43,10 +43,12 @@ def test():
     from time import time
     clear = bytearray(b'1234567890' * 100000)
     t0 = time()
-    cipher = arcfour(b'key', clear)
-    print('elapsed time: %.2fs' % (time() - t0))
-    result = arcfour(b'key', cipher)
-    assert result == clear, '%r != %r' % (result, clear)
+
+    for _ in range(12):
+        cipher = arcfour(b'key', clear)
+        # print('elapsed time: %.2fs' % (time() - t0))
+        result = arcfour(b'key', cipher)
+        assert result == clear, '%r != %r' % (result, clear)
     print('elapsed time: %.2fs' % (time() - t0))
     print('OK')
 
