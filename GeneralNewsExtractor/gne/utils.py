@@ -13,6 +13,7 @@ def remove_useless_code(html):
 
 def pre_parse(html):
     html = remove_useless_code(html)
+    # print(html)
     element = fromstring(html)
     return element # 返回的DOM
 

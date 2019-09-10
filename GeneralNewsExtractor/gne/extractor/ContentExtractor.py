@@ -34,6 +34,7 @@ class ContentExtractor:
         result = sorted(self.node_info.items(), key=lambda x: x[1]['score'], reverse=True)
         return result
 
+    # 计算p的个数
     def count_text_tag(self, element, tag='p'):
         return len(element.xpath(f'.//{tag}'))
 
@@ -43,7 +44,7 @@ class ContentExtractor:
             element_list = [element_list]
 
         for element in element_list:
-            for text in element.xpath('.//text()'):
+            for text in element.xpath('.//text()'): # 每一个节点后面的文本
                 text = text.strip()
                 if not text: # 跳过空格 换行
                     continue

@@ -30,5 +30,6 @@ class TitleExtractor:
 
     def extract(self, element: HtmlElement, title_xpath: str=''):
         title = self.extract_by_xpath(element, title_xpath) or self.extract_by_title(element) or self.extract_by_htag(element)
+        # 上面这样写很简洁
         return title
 
