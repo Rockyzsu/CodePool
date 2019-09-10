@@ -26,7 +26,7 @@ from flags2_common import main, save_flag, HTTPStatus, Result
 DEFAULT_CONCUR_REQ = 1
 MAX_CONCUR_REQ = 1
 
-# BEGIN FLAGS2_BASIC_HTTP_FUNCTIONS
+# BEGIN FLAGS2_BAS IC_HTTP_FUNCTIONS
 def get_flag(base_url, cc):
     url = '{}/{cc}/{cc}.gif'.format(base_url, cc=cc.lower())
     resp = requests.get(url)

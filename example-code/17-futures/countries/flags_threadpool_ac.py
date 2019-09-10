@@ -19,7 +19,7 @@ from concurrent import futures
 
 from flags import save_flag, get_flag, show, main
 
-MAX_WORKERS = 30
+MAX_WORKERS = 1
 
 
 def download_one(cc):
