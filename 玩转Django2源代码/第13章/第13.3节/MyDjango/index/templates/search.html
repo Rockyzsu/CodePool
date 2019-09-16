@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>搜索引擎</title>
+    {# 导入CSS样式文件 #}
+    {% load staticfiles %}
+    <link type="text/css" rel="stylesheet" href="{% static "common.css" %}">
+    <link type="text/css" rel="stylesheet" href="{% static "search.css" %}">
+</head>
+<body>
+<div class="header">
+    <div class="search-box">
+        <form id="searchForm" action="" method="get">
+            <div class="search-keyword">
+                {# 搜索输入文本框必须命名为q #}
+                <input id="q" name="q" type="text" class="keyword" maxlength="120"/>
+            </div>
+            <input id="subSerch" type="submit" class="search-button" value="搜 索" />
+        </form>
+        <div id="suggest" class="search-suggest"></div>
+    </div>
+</div><!--end header-->
+
+<div class="wrapper clearfix" id="wrapper">
+<div class="mod_songlist">
+    <ul class="songlist__header">
+        <li class="songlist__header_name">产品名称</li>
+        <li class="songlist__header_author">重量</li>
+        <li class="songlist__header_album">描述</li>
+    </ul>
+    <ul class="songlist__list">
+        {# 列出当前分页所对应的数据内容 #}
+        {% if show_all %}
+            {% for item in page.object_list %}
+            <li class="js_songlist__child" mid="1425301" ix="6">
+                <div class="songlist__item">
+                    <div class="songlist__songname">{{ item.name }}</div>
+                    <div class="songlist__artist">{{item.weight}}</div>
+                    <div class="songlist__album">{{ item.describe }}</div>
+                </div>
+            </li>
+            {% endfor %}
+        {% else %}
+            {# 导入自带高亮功能 #}
+            {% load highlight %}
+            {% for item in page.object_list %}
+            <li class="js_songlist__child" mid="1425301" ix="6">
+                <div class="songlist__item">
+                    <div class="songlist__songname">{% highlight item.object.name with query %}</div>
+                    <div class="songlist__artist">{{item.object.weight}}</div>
+                    <div class="songlist__album">{% highlight item.object.describe with query %}</div>
+                </div>
+            </li>
+            {% endfor %}
+        {% endif %}
+    </ul>
+    {# 分页导航 #}
+    <div class="page-box">
+    <div class="pagebar" id="pageBar">
+    {# 上一页的URL地址 #}
+    {% if page.has_previous %}
+        {% if query %}
+            <a href="{% url 'haystack'%}?q={{ query }}&amp;page={{ page.previous_page_number }}" class="prev">上一页</a>
+        {% else %}
+            <a href="{% url 'haystack'%}?page={{ page.previous_page_number }}" class="prev">上一页</a>
+        {% endif %}
+    {% endif %}
+    {# 列出所有的URL地址 #}
+    {% for num in page.paginator.page_range %}
+        {% if num == page.number %}
+            <span class="sel">{{ page.number }}</span>
+        {% else %}
+            {% if query %}
+                <a href="{% url 'haystack' %}?q={{ query }}&amp;page={{ num }}" target="_self">{{num}}</a>
+            {% else %}
+                <a href="{% url 'haystack' %}?page={{ num }}" target="_self">{{num}}</a>
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+    {# 下一页的URL地址 #}
+    {% if page.has_next %}
+        {% if query %}
+            <a href="{% url 'haystack' %}?q={{ query }}&amp;page={{ page.next_page_number }}" class="next">下一页</a>
+        {% else %}
+            <a href="{% url 'haystack' %}?page={{ page.next_page_number }}" class="next">下一页</a>
+        {% endif %}
+    {% endif %}
+    </div>
+    </div>
+</div><!--end mod_songlist-->
+</div><!--end wrapper-->
+</body>
+</html>

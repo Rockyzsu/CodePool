@@ -1,0 +1,151 @@
+.mod_profile{height:315px;padding-top:65px;background:url(../image/user_bg.jpg) 50% no-repeat;background-size:cover;text-align:center;color:#fff}
+.mod_profile .section_inner{height:315px}
+.profile__cover_link{position:relative;width:102px;height:102px;margin:0 auto}
+.profile__cover{display:block;width:100%;height:100%;border:4px solid #fff;border-radius:99px;background:#fff}
+.profile__name{font-size:30px;font-weight:400;line-height:64px;margin-right:4px}
+.mod_songlist{padding:40px 0;font-size:14px;overflow:hidden}
+.songlist__list{overflow:hidden;clear:both}
+.songlist__header,.songlist__item{position:relative;padding-left:46px;padding-right:100px}
+.songlist__item{clear:both;font-size:0;overflow:hidden}
+.songlist__item--even{background-color:#fbfbfd}
+.songlist__album,.songlist__artist,.songlist__number,.songlist__other,.songlist__songname,.songlist__time{line-height:50px;height:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.songlist__header{height:50px;line-height:50px;background-color:#fbfbfd;color:#999}
+.songlist__header_name,.songlist__songname{float:left;width:47.685185%;position:relative;white-space:normal}
+.songlist__album,.songlist__artist,.songlist__header_album,.songlist__header_author{float:left;padding-left:20px;width:23.611111%}
+.songlist__header_time,.songlist__time{position:absolute;top:0;right:38px;width:50px}
+.songlist__header_other,.songlist__other{position:absolute;top:0;right:0;width:38px;overflow:inherit}
+.songlist__song_txt{margin-left:10px}
+.songlist__song_txt,.songlist__time{color:#999}
+.songlist__number{position:absolute;top:0;left:10px;color:#999;width:36px}
+.songlist__songname_txt{float:left;overflow:hidden;text-overflow:ellipsis;max-width:75%;margin-right:8px;white-space:nowrap}
+.songlist__item .songlist__songname_txt:nth-child(1){max-width:85%;box-sizing:border-box}
+.songlist__item .songlist__icon:nth-child(1)+.songlist__songname_txt{max-width:72%;box-sizing:border-box}
+.songlist__item .songlist__icon:nth-child(2)+.songlist__songname_txt{max-width:62%;box-sizing:border-box}
+.songlist__icon{display:inline-block}
+.songlist__item .mod_list_menu{position:absolute;right:0px;right:-9999px\9;top:50%;overflow:hidden;opacity:0;pointer-events:none}
+.songlist__item--current .mod_list_menu,.songlist__item:hover .mod_list_menu{opacity:1;pointer-events:inherit;right:0px;margin-top:-18px}
+.songlist__item--current .songlist__songname_txt,.songlist__item:hover .songlist__songname_txt{max-width:31%}
+.songlist__item--current .songlist__songname_txt:nth-child(1),.songlist__item:hover .songlist__songname_txt:nth-child(1){max-width:41%}
+.songlist__item--current .songlist__icon:nth-child(1)+.songlist__songname_txt,.songlist__item:hover .songlist__icon:nth-child(1)+.songlist__songname_txt{max-width:38%}
+.songlist__item--current .songlist__icon:nth-child(2)+.songlist__songname_txt,.songlist__item:hover .songlist__icon:nth-child(2)+.songlist__songname_txt{max-width:28%}
+.songlist__edit{display:none}
+.songlist__checkbox{opacity:0;filter:alpha(opacity=0)}
+.mod_songlist_toolbar--edit{margin-bottom:60px;margin-top:-44px}
+.mod_songlist--edit .songlist__header,.mod_songlist--edit .songlist__item,.mod_songlist_toolbar--edit{padding-left:82px}
+.mod_songlist--edit .songlist__edit,.mod_songlist_toolbar--edit .songlist__edit{display:block;position:absolute;left:20px;top:50%;margin-top:-9px;width:14px;height:14px;line-height:14px;border:1px solid #ccc}
+.mod_songlist--edit .songlist__edit input,.mod_songlist_toolbar--edit input{width:14px;height:14px}
+.mod_songlist--edit .songlist__edit--check,.mod_songlist_toolbar--edit .songlist__edit--check{border-color:#31c27c;background-image:url(img/icon_sprite.png?max_age=2592000&v=bc673d15303afd0ec21fcc0f922d2d0f);background-image:-webkit-image-set(url(img/icon_sprite.png?max_age=2592000&v=bc673d15303afd0ec21fcc0f922d2d0f) 1x,url(img/icon_sprite@2x.png?max_age=2592000&v=bc673d15303afd0ec21fcc0f922d2d0f&v=72112c43c39c53184d7ee81bfea6dc6d) 2x);background-position:-60px -100px}
+.mod_songlist_toolbar--edit .mod_btn{margin-top:6px}
+.mod_songlist--edit .songlist__number{left:46px}
+.main{min-height:500px;}
+.main,.section_inner{max-width:1200px;margin:0 auto;position:relative}
+.profile__tit{padding-top:20px;}
+.mod_tab,.mod_tab__item{height:56px;line-height:56px}
+.mod_tab{position:relative;zoom:1;border-bottom:1px solid #f7f7f7;margin-bottom:30px}
+.mod_tab__item{position:relative;float:left;font-size:16px;overflow:hidden;margin-right:55px}
+.mod_tab__current{color:#31c27c}
+.profile_nav{position:absolute;top:-56px;left:0;margin-bottom:0;width:80%}
+.profile_nav .mod_tab__item{color:#fff;margin-right:40px}
+.profile_nav .mod_tab__current,.profile_nav .mod_tab__item:hover{color:#31c27c;text-decoration:none;}
+.songlist__delete{position:absolute;top:50%;right:58px;margin-top:-18px;width:36px;height:36px;border:1px solid #ccc;border-radius:50%;text-align:center;visibility:hidden;color:#ccc;}
+.songlist__delete span::after{content:"\e66d";display:block;font-family:iconfont;font-size:20px;line-height:36px;}
+.songlist__delete:hover{border-color:#30C37E;color:#30C37E;text-decoration:none;}
+.songlist__item--current .songlist__delete,.songlist__item:hover .songlist__delete{visibility:visible;}
+.songlist__item--current .songlist__time,.songlist__item:hover .songlist__time{display:none}
+.playlist_toolbar{padding-top:30px;height:40px;}
+.mod_btn,.mod_btn_green{border-radius:2px;font-size:14px;margin-right:6px;padding:0 23px;height:38px;line-height:38px;display:inline-block;white-space:nowrap;box-sizing:border-box;overflow:hidden;cursor:pointer;}
+.mod_btn{border:1px solid #c9c9c9;color:#333;background:#fff;}
+.js_create_new i{float:left;margin-right:10px;}
+.js_create_new i::before{content:"\e62a";display:inline-block;font-family:iconfont;font-size:20px;}
+.mod_btn--hover,.mod_btn:hover{background-color:#ededed;color:#333;text-decoration:none;}
+.mod_btn_green{border:1px solid #31c27c;background-color:#31c27c;color:#fff}
+.mod_btn_green:hover{background-color:#2caf6f;border-color:#2caf6f;color:#fff;text-decoration:none;}
+.mod_btn_green:active{background-color:#279c63;border-color:#279c63}
+.mod_playlist_text .playlist__header{height:50px;line-height:50px;background-color:#fbfbfd;color:#999}
+.mod_playlist_text .playlist__author,.mod_playlist_text .playlist__header_author,.mod_playlist_text .playlist__header_name,.mod_playlist_text .playlist__header_number,.mod_playlist_text .playlist__number{float:left;padding-left:20px;font-size:14px;}.mod_playlist_text .playlist__header_other,.mod_playlist_text .playlist__other{float:right;padding-right:20px;text-align:right;}
+.mod_playlist_text .playlist__header_name{width:57%}
+.mod_playlist_text .playlist__item{position:relative;height:70px;line-height:70px;zoom:1;overflow:hidden;clear:both;font-size:0}
+.mod_playlist_text .playlist__item--even{background-color:#fbfbfd}
+.mod_playlist_text .playlist__cover{float:left;width:50px;height:50px;overflow:hidden;margin-top:10px;padding-left:20px}
+.mod_playlist_text .playlist__pic{display:block;width:100%;min-height:50px}
+.playlist__title{float:left;height:70px}
+.mod_playlist_text .playlist__author,.mod_playlist_text .playlist__number,.mod_playlist_text .playlist__other,.mod_playlist_text .playlist__title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.mod_playlist_text .playlist__title{width:52.66667%;font-weight:400;text-indent:15px;overflow:hidden}
+.mod_playlist_text .playlist__title_txt{float:left;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+.mod_playlist_text .playlist__item--current .playlist__title_txt,.mod_playlist_text .playlist__item--hover .playlist__title_txt{max-width:70%}
+.mod_playlist_text .playlist__other{color:#999}
+.mod_playlist_text .mod_list_menu{position:absolute;left:44%;left:-9999px\9;top:19px;overflow:hidden;opacity:0;pointer-events:none}
+.mod_playlist_text .playlist__item--current .mod_list_menu,.mod_playlist_text .playlist__item--hover .mod_list_menu{opacity:1;left:44%;pointer-events:inherit}
+.list_current,.list_hover{background-color:#f7f7f7}
+.list_current .mod_playlist_text .playlist__title,.list_hover .mod_playlist_text .playlist__title{width:30.8986%}
+.mod_playlist_text .playlist__delete{position:absolute;top:50%;right:-99px;margin-top:-18px;width:36px;height:36px;border:1px solid #ccc;border-radius:50%;text-align:center;visibility:hidden;color:#ccc;line-height:2px;}
+.mod_playlist_text .playlist__delete span::after{content:"\e66d";display:block;font-family:iconfont;font-size:20px;line-height:36px;}
+.mod_playlist_text .playlist__delete:hover{border-color:#30C37E;color:#30C37E;text-decoration:none;}
+.mod_playlist_text .playlist__item--current .playlist__delete,.mod_playlist_text .playlist__item--hover .playlist__delete{right:20px;visibility:visible;}
+.mod_popup_mask{position:fixed;top:0;left:0;width:100%;height:100%;filter:progid:DXImageTransform.Microsoft.gradient(enabled='true', startColorstr='#33000000', endColorstr='#33000000');background:rgba(0,0,0,.2);z-index:999;display:none;}
+.mod_popup{position:fixed;z-index:100000;top:50%;left:50%;border:1px solid #bfbfbf;box-shadow:0 0 10px rgba(0,0,0,.3);background-color:#fff;font-size:14px;color:#333;margin:-123px 0 0 -260px;display:none;}
+.popup__hd{position:relative;line-height:55px;text-align:center;border-bottom:1px solid #f2f2f2}
+.popup__tit{font-size:16px;font-weight:400}
+.popup__tit_item{margin:0 55px}
+.popup__tit_item.current{color:#31c27c}
+.popup__tit_item.new:after{content:"";display:inline-block;width:6px;height:6px;margin-left:8px;background-color:#fc4c24;vertical-align:4px;border-radius:6px}
+.popup__close{position:absolute;top:6px;right:6px;width:24px;height:24px;overflow:hidden;z-index:2;line-height:24px;}
+.popup__close:hover{text-decoration:none;}
+.popup__icon_close::before{content:"\e601";font-family:iconfont;font-size:12px;}
+.popup__close:hover .popup__icon_close{background-position:-14px -200px}
+.popup__ft{padding:20px 20px 0 0;height:60px;text-align:right}
+.popup__ft .mod_btn,.popup__ft .mod_btn_green{width:auto;min-width:122px;text-align:center}
+.popup__ft .popup_btns__item{min-width:76px}
+.popup__bd:after{clear:both;content:' ';display:block}
+.popup__bd_inner{margin-top:30px;padding:0 108px 28px;position:relative}
+.popup__icon_tips{position:absolute;top:0;left:40px;width:48px;height:48px}
+.icon_popup_note{background-position:0 0}
+.icon_popup_warn{background-position:0 -50px}
+.icon_popup_success{background-position:0 -100px}
+.popup__subtit{font-size:14px;padding:0 0 7px 0;font-weight:400}
+.popup__subtit--single{padding-top:13px}
+.popup__desc{color:#999}
+.popup__desc a{color:#31c27c}
+.popup_upload_cover{width:336px;height:488px}
+.popup_new_list .popup__bd{position:relative;margin-top:39px;padding:0 40px 0 101px;padding-bottom:28px;overflow:hidden}
+.popup_new_list .form__label{position:absolute;top:0;left:0;width:81px;line-height:40px;text-align:right}
+.popup_new_list .mod_form_txt{width:377px;border-color:#e1e1e1}
+.popup_new_list .form_txt__input{width:330px;line-height:38px;border:1px solid #ccc;}
+.popup_new_list__tips{position:absolute;top:45px;left:101px;color:#ff4222}
+.popup_share_wechat{width:336px;text-align:center;height:518px}
+.popup_share_wechat__qrcode{width:188px;height:188px;display:block;margin:82px auto 50px}
+.popup_share_wechat__img{vertical-align:-2px;margin:0 4px}
+.popup_share_wechat__txt{line-height:27px;font-size:16px}
+.popup_share{width:598px}
+.popup_share__bd{margin:39px 35px 0}
+.popup_share_cont{position:relative;border:1px solid #e1e1e1;height:332px}
+.popup_share__textarea{border:0 none}
+.mod_data{position:relative;height:250px;padding-left:305px;margin-top:40px;margin-bottom:35px}
+.data__cont{padding-top:13px}
+.data__cover{position:absolute;left:0;top:0;width:250px;height:250px}
+.data__photo{width:100%;height:100%;object-fit:cover}
+.data__name{overflow:hidden;height:50px;line-height:50px}
+.data__name_txt{float:left;font-size:31px;line-height:50px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;margin-right:10px}
+.data__singer{height:24px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90%}
+.icon_singer{float:left;width:16px;height:16px;margin:0px 7px 0 0}
+.icon_singer::before{content:"\e604";font-family:iconfont;font-size:20px;}
+.data__singer_txt{font-size:16px;color:#333}
+.data__singer_line{padding:1px 4px}
+.data__actions{position:absolute;bottom:23px;font-size:0}
+.data__actions .mod_btn,.data__actions .mod_btn_green{min-width:122px;text-align:center}
+.data__name:hover .btn_edit,.data_info__item:hover .btn_edit,.mod_about:hover .btn_edit{display:inline-block;vertical-align:middle;width:14px;height:14px}
+.btn_edit:hover{background-position:-140px -60px}
+.data__name .form_txt__input{font-size:31px;line-height:32px}
+.data__info{width:520px;padding-top:8px}
+.data_info__item{height:27px;line-height:27px;width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.data_info__tags{margin-right:12px}
+.mod_btn_green__icon_play{padding-right:10px;}
+.mod_btn_green__icon_play::before{content:"\e634";font-family:iconfont;font-size:12px;color:#fff;}
+.mod_btn__icon_like{padding-right:10px;}
+.mod_btn__icon_like::before{content:"\e618";font-family:iconfont;font-size:14px;color:#aaa;}
+.main .info_con{padding-top:20px;line-height:40px;font-size:16px;}
+.main .info_con h3{font-size:22px;padding:0 0 10px 10px;}
+.main .info_con dt{float:left;width:120px;text-align:right;clear:left;background:#e0e0e0;margin-bottom:1px;}
+.main .info_con dd{float:left;width:1070px;text-align:left;padding-left:10px;background:#f0f0f0;margin-bottom:1px;}
+.main .info_con dd .modify{float:right;font-size:12px;color:#aaa;margin-right:20px;}
+.main .info_con dd .modify:hover{color:#666;}

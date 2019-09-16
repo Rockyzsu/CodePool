@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <title>找回密码</title>
+    <link rel="stylesheet" href="https://unpkg.com/mobi.css/dist/mobi.min.css">
+</head>
+<body>
+<div class="flex-center">
+    <div class="container">
+    <div class="flex-center">
+    <div class="unit-1-2 unit-1-on-mobile">
+        <h1>MyDjango Auth</h1>
+            {% if tips %}
+        <div>{{ tips }}</div>
+            {% endif %}
+        <form class="form" action="{% url 'findPassword' %}" method="post">
+            {% csrf_token %}
+            <div>用户名:<input type="text" name='username' value="{{ username }}"></div>
+            <div>验证码:<input type="text" name='VerificationCode'></div>
+            {% if new_password %}
+                <div>新密码:<input type="password" name='new_password'></div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary btn-block">{{ button }}</button>
+        </form>
+    </div>
+    </div>
+    </div>
+</div>
+</body>
+</html>

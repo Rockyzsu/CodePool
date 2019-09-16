@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>分页功能</title>
+    {# 导入CSS样式文件 #}
+    {% load staticfiles %}
+    <link type="text/css" rel="stylesheet" href="{% static "css/common.css" %}">
+    <link type="text/css" rel="stylesheet" href="{% static "css/pagination.css" %}">
+</head>
+<body>
+<div class="wrapper clearfix" id="wrapper">
+<div class="mod_songlist">
+    <ul class="songlist__header">
+        <li class="songlist__header_name">产品名称</li>
+        <li class="songlist__header_author">重量</li>
+        <li class="songlist__header_album">尺寸</li>
+        <li class="songlist__header_other">产品类型</li>
+    </ul>
+    <ul class="songlist__list">
+        {# 列出当前分页所对应的数据内容 #}
+        {% for item in pageInfo %}
+        <li class="js_songlist__child" mid="1425301" ix="6">
+            <div class="songlist__item">
+                <div class="songlist__songname">{{item.name}}</div>
+                <div class="songlist__artist">{{item.weight}}</div>
+                <div class="songlist__album">{{item.size}}</div>
+                <div class="songlist__other">{{ item.type }}</div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {# 分页导航 #}
+    <div class="page-box">
+    <div class="pagebar" id="pageBar">
+    {# 上一页的URL地址 #}
+    {% if pageInfo.has_previous %}
+        <a href="{% url 'pagination' pageInfo.previous_page_number %}" class="prev"><i></i>上一页</a>
+    {% endif %}
+    {# 列出所有的URL地址 #}
+    {% for num in pageInfo.paginator.page_range %}
+        {% if num == pageInfo.number %}
+            <span class="sel">{{ pageInfo.number }}</span>
+        {% else %}
+            <a href="{% url 'pagination' num %}" target="_self">{{num}}</a>
+        {% endif %}
+    {% endfor %}
+    {# 下一页的URL地址 #}
+    {% if pageInfo.has_next %}
+        <a href="{% url 'pagination' pageInfo.next_page_number %}" class="next">下一页<i></i></a>
+    {% endif %}
+    </div>
+    </div>
+</div><!--end mod_songlist-->
+</div><!--end wrapper-->
+</body>
+</html>

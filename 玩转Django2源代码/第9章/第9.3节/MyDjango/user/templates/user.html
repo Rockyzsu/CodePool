@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <title>用户注册</title>
+    <link rel="stylesheet" href="https://unpkg.com/mobi.css/dist/mobi.min.css">
+</head>
+<body>
+<div class="flex-center">
+    <div class="container">
+    <div class="flex-center">
+    <div class="unit-1-2 unit-1-on-mobile">
+        <h1>MyDjango Auth</h1>
+            {% if tips %}
+        <div>{{ tips }}</div>
+            {% endif %}
+        <form class="form" action="" method="post">
+            {% csrf_token %}
+            <div>用户名:{{ user.username }}</div>
+            <div>邮  箱:{{ user.email }}</div>
+            <div>手机号:{{ user.mobile }}</div>
+            <div>Q Q 号:{{ user.qq }}</div>
+            <div>微信号:{{ user.weChat }}</div>
+            <div>密  码:{{ user.password1 }}</div>
+            <div>密码确认:{{ user.password2 }}</div>
+            <button type="submit" class="btn btn-primary btn-block">注 册</button>
+        </form>
+    </div>
+    </div>
+    </div>
+</div>
+</body>
+</html>

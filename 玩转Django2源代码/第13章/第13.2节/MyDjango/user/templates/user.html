@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Django</title>
+        <script src="http://apps.bdimg.com/libs/jquery/2.1.1/jquery.min.js"></script>
+        <link rel="stylesheet" href="https://unpkg.com/mobi.css/dist/mobi.min.css">
+    </head>
+    <body>
+        <div class="flex-center">
+            <div class="container">
+            <div class="flex-center">
+            <div class="unit-1-2 unit-1-on-mobile">
+                <h1>MyDjango Verification</h1>
+                    {% if tips %}
+                <div>{{ tips }}</div>
+                    {% endif %}
+                <form class="form" action="" method="post">
+                    {% csrf_token %}
+                    <div>用户名:{{ form.username }}</div>
+                    <div>密 码:{{ form.password }}</div>
+                    <div>验证码:{{ form.captcha }}</div>
+                    <button type="submit" class="btn btn-primary btn-block">确定</button>
+                </form>
+            </div>
+            </div>
+            </div>
+        </div>
+    <script>
+        $(function(){
+            {# ajax 刷新验证码 #}
+            $('.captcha').click(function(){
+                console.log('click');
+                    $.getJSON("/captcha/refresh/",
+                function(result){
+                    $('.captcha').attr('src', result['image_url']);
+                    $('#id_captcha_0').val(result['key'])
+            });});
+            {# ajax动态验证验证码 #}
+            $('#id_captcha_1').blur(function(){
+                // #id_captcha_1为输入框的id，当该输入框失去焦点就会触发函数
+                json_data={
+                    // 获取输入框和隐藏字段id_captcha_0的数值
+                    'response':$('#id_captcha_1').val(),
+                    'hashkey':$('#id_captcha_0').val()
+                }
+                $.getJSON('/ajax_val', json_data, function(data){
+                    $('#captcha_status').remove()
+                    //status返回1为验证码正确， status返回0为验证码错误， 在输入框的后面写入提示信息
+                    if(data['status']){
+                        $('#id_captcha_1').after('<span id="captcha_status">*验证码正确</span>')
+                    }else{
+                        $('#id_captcha_1').after('<span id="captcha_status">*验证码错误</span>')
+                    }
+                });
+            });
+        })
+    </script>
+    </body>
+</html>

@@ -1,0 +1,108 @@
+{% extends "title_base.html"  %}
+{% block title  %}
+{% load staticfiles %}
+<link type="image/x-icon" rel="shortcut icon" href="{% static "favicon.ico" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/common.css" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/user.css" %}">
+</head>
+
+<body class="member">
+    <div class="header">
+        <a href="/" class="logo" title="首页"><img src="{% static "image/logo.png" %}"></a>
+        <div class="search-box">
+            <form id="searchForm" action="{% url 'search' 1 %}" method="post" target="_blank">
+            {% csrf_token %}
+                <div class="search-keyword">
+                <input id="kword" name="kword" type="text" class="keyword" maxlength="120" placeholder="音乐节"/>
+                </div>
+                <input id="subSerch" type="submit" class="search-button" value="搜 索" />
+            </form>
+            <div id="suggest" class="search-suggest"></div>
+            <div class="search-hot-words">
+                {% for song in search_song  %}
+                    <a target="play" href="{% url 'play' song.song.song_id %}">{{ song.song.song_name }}</a>
+                {% endfor  %}
+            </div>
+        </div>
+    </div><!--end header-->
+
+	<div class="nav-box">
+		<div class="nav-box-inner">
+			<ul class="nav clearfix">
+				<li><a href="/">首页</a></li>
+				<li><a href="{% url 'ranking' %}" target="_blank">歌曲排行</a></li>
+	    	    <li><a href="{% url 'home' 1 %}" target="_blank">用户中心</a></li>
+			</ul>
+		</div>
+	</div><!--end nav-box-->
+
+    <div class="mod_profile js_user_data" style="">
+        <div class="section_inner">
+            <div class="profile__cover_link">
+                <img src="{% static "image/user.jpg" %}" class="profile__cover">
+            </div>
+            <h1 class="profile__tit">
+                <span class="profile__name">{{ user.username }}</span>
+            </h1>
+                <a href="{% url 'logout' %}" style="color:white;">退出登录</a>
+        </div>
+    </div>
+
+	<div class="main main--profile" style="">
+        <div class="mod_tab profile_nav" role="nav" id="nav">
+            <span class="mod_tab__item mod_tab__current" id="hear_tab">我听过的歌</span>
+        </div>
+		<div class="js_box" style="display: block;">
+			<div class="profile_cont">
+				<div class="js_sub" style="display: block;">
+					<div class="mod_songlist">
+						<ul class="songlist__header">
+							<li class="songlist__header_name">歌曲</li>
+							<li class="songlist__header_author">歌手</li>
+							<li class="songlist__header_time">时长</li>
+						</ul>
+						<ul class="songlist__list">
+                            {% for item in contacts.object_list %}
+							<li>
+								<div class="songlist__item songlist__item--even">
+							    <div class="songlist__songname">
+                                    <a href="{% url 'play' item.song_id %}" class="js_song songlist__songname_txt" >{{ item.song_name }}</a>
+							    </div>
+							    <div class="songlist__artist">
+                                    <a href="javascript:;" class="singer_name">{{ item.song_singer }}</a>
+							    </div>
+							    <div class="songlist__time">{{ item.song_time }}</div>
+								</div>
+							</li>
+                            {% endfor %}
+						</ul>
+					</div><!--end mod_songlist-->
+
+                    <!--分页-->
+					<div class="page-box">
+						<div class="pagebar" id="pageBar">
+
+                            {% if contacts.has_previous %}
+                            <a href="{% url 'home' contacts.previous_page_number %}" class="prev" target="_self"><i></i>上一页</a>
+                            {% endif %}
+
+                            {% for page in contacts.paginator.page_range %}
+                                {% if contacts.number == page %}
+                                    <span class="sel">{{ page }}</span>
+                                {% else %}
+                                    <a href="{% url 'home' page %}" target="_self">{{ page }}</a>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if contacts.has_next %}
+                            <a href="{% url 'home' contacts.next_page_number %}" class="next" target="_self">下一页<i></i></a>
+                            {% endif %}
+
+                        </div>
+					</div>
+				</div>
+			</div>
+		</div>
+    </div><!-- end main -->
+
+{% endblock  %}

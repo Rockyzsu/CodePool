@@ -1,0 +1,85 @@
+{% extends "title_base.html"  %}
+{% block title  %}
+{% load staticfiles %}
+<link type="image/x-icon" rel="shortcut icon" href="{% static "favicon.ico" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/common.css" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/search.css" %}">
+
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="logo" title="首页"><img alt="我的音乐" src="{% static "image/logo.png" %}"></a>
+        <div class="search-box">
+            <form id="searchForm" action="{% url 'search' 1 %}" method="post" target="_blank">
+                {% csrf_token %}
+                <div class="search-keyword">
+                    <input id="kword" name="kword" type="text" class="keyword" maxlength="120" placeholder="音乐节"  />
+                </div>
+                <input id="subSerch" type="submit" class="search-button" value="搜 索" />
+            </form>
+            <div id="suggest" class="search-suggest"></div>
+            <div class="search-hot-words">
+                {% for song in search_song  %}
+                    <a target="play" href="{% url 'play' song.song.song_id %}" >{{ song.song.song_name }}</a>
+                {% endfor  %}
+            </div>
+        </div>
+    </div><!--end header-->
+    <div class="nav-box">
+		<div class="nav-box-inner">
+			<ul class="nav clearfix">
+                <li><a href="/">首页</a></li>
+				<li><a href="{% url 'ranking' %}" target="_blank">歌曲排行</a></li>
+	    	    <li><a href="{% url 'home' 1 %}" target="_blank">用户中心</a></li>
+			</ul>
+		</div>
+	</div><!--end nav-box-->
+  <!--wrapper-->
+    <div class="wrapper clearfix" id="wrapper">
+    <div class="mod_songlist">
+        <ul class="songlist__header">
+            <li class="songlist__header_name">歌曲</li>
+            <li class="songlist__header_author">歌手</li>
+            <li class="songlist__header_time">时长</li>
+        </ul>
+        <ul class="songlist__list">
+            {%for list in contacts.object_list %}
+            <li class="js_songlist__child">
+                <div class="songlist__item">
+                    <div class="songlist__songname">
+                        <span class="songlist__songname_txt">
+                            <a href="{% url 'play' list.song_id %}" class="js_song" target="play" >{{list.song_name}}</a>
+                        </span>
+                    </div>
+                    <div class="songlist__artist">
+                        <a href="javascript:;" class="singer_name" >{{list.song_singer}}</a>
+                    </div>
+                    <div class="songlist__time">{{list.song_time}}</div>
+                </div>
+            </li>
+            {%endfor %}
+        </ul>
+        <div class="page-box">
+            <div class="pagebar" id="pageBar">
+                {% if contacts.has_previous %}
+                <a href="{% url 'search' contacts.previous_page_number %}" class="prev" target="_self"><i></i>上一页</a>
+                {% endif %}
+
+                {% for page in contacts.paginator.page_range %}
+                    {% if contacts.number == page %}
+                        <span class="sel">{{ page }}</span>
+                    {% else %}
+                        <a href="{% url 'search' page %}" target="_self">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if contacts.has_next %}
+                <a href="{% url 'search' contacts.next_page_number %}" class="next" target="_self">下一页<i></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </div><!--end mod_songlist-->
+    </div><!--end wrapper-->
+    <!--footer-->
+
+{% endblock  %}

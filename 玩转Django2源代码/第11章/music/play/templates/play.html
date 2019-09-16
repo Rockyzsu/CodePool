@@ -1,0 +1,174 @@
+{% extends "title_base.html"  %}
+
+{% block title  %}
+{% load staticfiles %}
+<link type="image/x-icon" rel="shortcut icon" href="{% static "favicon.ico" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/common.css" %}">
+<link type="text/css" rel="stylesheet" href="{% static "css/play.css" %}">
+
+</head>
+<body>
+	<div class="header">
+		<a href="/" class="logo" title="首页"><img src="{% static "image/logo.png" %}"></a>
+		<div class="search-box">
+			<!-- 歌曲查询 -->
+            <form id="searchForm" action="{% url 'search' 1 %}" method="post" target="_blank">
+            {% csrf_token %}
+            <div class="search-keyword">
+              <input id="kword" name="kword" type="text" class="keyword" maxlength="120" placeholder="音乐节"  />
+            </div>
+            <input id="subSerch" type="submit" class="search-button" value="搜 索" />
+            </form>
+            <div id="suggest" class="search-suggest"></div>
+            <div class="search-hot-words">
+                {% for song in search_song  %}
+                <a target="play" href="{% url 'play' song.song.song_id %}" >{{ song.song.song_name }}</a>
+                {% endfor  %}
+            </div>
+		</div>
+	</div><!--end header-->
+	<div class="nav-box">
+		<div class="nav-box-inner">
+			<ul class="nav clearfix">
+				<li><a href="/">首页</a></li>
+				<li><a href="{% url 'ranking' %}" target="_blank">歌曲排行</a></li>
+	    	    <li><a href="{% url 'home' 1 %}" target="_blank">用户中心</a></li>
+			</ul>
+		</div>
+	</div><!--end nav-box-->
+	<!--后期修改-->
+	<div class="wrapper clearfix">
+        <div class="content">
+            <div class="product-detail-box clearfix">
+                <div class="product-pics">
+                    <div class="music_box">
+                        <div id="jquery_jplayer_1" class="jp-jplayer" data-url={% static "songFile/" %}{{ song_info.song_file }}></div>
+                        <div class="jp_img layz_load pic_po" title="点击播放"><img data-src={% static "songImg/" %}{{ song_info.song_img }}></div>
+                        <div id="jp_container_1" class="jp-audio">
+                            <div class="jp-gui jp-interface">
+                                <div class="jp-time-holder clearfix">
+                                    <div class="jp-progress">
+                                        <div class="jp-seek-bar">
+                                            <div class="jp-play-bar"></div>
+                                        </div>
+                                    </div>
+                                    <div class="jp-time">
+                                        <span class="jp-current-time"></span> /
+                                        <span class="jp-duration"></span>
+                                    </div>
+                                </div>
+                                <div class="song_error_corr" id="songCorr">
+                                    <b class="err_btn">纠错</b>
+                                    <ul>
+                                        <li><span>歌词文本错误</span></li>
+                                        <li><span>歌词时间错误</span></li>
+                                        <li><span>歌曲错误</span></li>
+                                    </ul>
+                                </div>
+                                <div class="jp-volume-bar">
+                                    <div class="jp-volume-bar-value"></div>
+                                </div>
+                                <ul class="jp-controls clearfix">
+                                    <li><a class="jp-play" tabindex="1" title="play"></a><a class="jp-pause" tabindex="1" title="pause"></a></li>
+                                    <li><a class="jp-stop" tabindex="1" title="stop"></a></li>
+                                    <li><a class="jp-repeat" tabindex="1" title="repeat"></a><a class="jp-repeat-off" tabindex="1" title="repeat off"></a></li>
+                                    <li class="sound"><a class="jp-mute" tabindex="1" title="mute"></a><a class="jp-unmute" tabindex="1" title="unmute"></a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="jplayer_content">
+                            <ul id="lrc_list" class="lrc_list"></ul>
+                        </div>
+                    </div><!--end music_box-->
+                    <textarea id="lrc_content" style="display: none;">
+                      {{ song_lyrics }}
+                    </textarea>
+                </div><!--end product-pics-->
+                <div class="product-detail-main">
+                    <div class="product-price">
+                        <h1 id="currentSong" >{{ song_info.song_name }}</h1>
+                        <div class="product-price-info">
+                            <span>歌手：{{ song_info.song_singer }}</span>
+                        </div>
+                        <div class="product-price-info">
+                            <span>专辑：{{ song_info.song_album }}</span>
+                            <span>语种：{{ song_info.song_languages }}</span>
+                        </div>
+                        <div class="product-price-info">
+                            <span>流派：{{ song_info.song_type }}</span>
+                            <span>发行时间：{{ song_info.song_release }}</span>
+                        </div>
+                    </div><!--end product-price-->
+                    <div class="product-comment">
+                        <div class="links clearfix">
+                            <a class="minimum-link-A click_down" href="{% url 'download' song_info.song_id %}">下载</a>
+                            <a class="minimum-link-A" href="{% url 'comment' song_info.song_id %}" >歌曲点评</a>
+                        </div><!-- end links-->
+                        <h3 class="list_title">当前播放列表</h3>
+                        <ul class="playing-li" id="songlist">
+                            <!--播放列表-->
+                            {% for list in play_list %}
+                            {%if list.song_id == song_info.song_id %}
+                            <li data-id="{{list.song_id}}" class="current">
+                            {%else %}
+                            <li data-id="{{list.song_id}}">
+                            {%endif %}
+                            <span class="num">{{forloop.counter}}</span>
+                            <a class="name" href="{% url 'play' list.song_id %}" target="play" >{{list.song_name}}</a>
+                            <a class="singer" href="javascript:;" target="_blank" >{{list.song_singer}}</a>
+                            </li>
+                            {%endfor %}
+                        </ul>
+                        <div class="nplayL-btns" id="playleixin">
+                        <ul>
+                            <li class="order current" data-run="order">
+                                <a class="icon" href="javascript:void(0)" title="顺序播放"></a>
+                            </li>
+                            <li class="single" data-run="single">
+                                <a class="icon" title="单曲循环" href="javascript:void(0)"></a>
+                            </li>
+                            <li class="random" data-run="random">
+                                <a class="icon" title="随机播放" href="javascript:void(0)"></a>
+                            </li>
+                            <li class="next" data-run="next">
+                                <a href="javascript:void(0)"><i></i>播放下一首</a>
+                            </li>
+                            </ul>
+                        </div><!--end nplayL-btns-->
+                    </div><!-- end product-comment -->
+                </div><!-- end product-detail-main -->
+            </div><!-- end product-detail-box -->
+
+            <div class="section">
+                <div class="section-header">
+                    <h3>相关歌曲</h3>
+                </div>
+                <div class="section-content">
+                    <div class="parts-box">
+                        <a href="javascript:;" target="_self" id="J_PartsPrev" class="prev-btn"><i></i></a>
+                        <div class="parts-slider" id="J_PartsList">
+                            <div class="parts-list-wrap f_w">
+                                <ul id="" class="parts-list clearfix f_s">
+                                    {% for item in song_relevant %}
+                                    <li>
+                                        {% if item.song.song_id != song_info.song_id %}
+                                        <a class="pic layz_load pic_po" href="{% url 'play' item.song.song_id %}" target="play" >
+                                            <img data-src="{% static "songImg/" %}{{ item.song.song_img }}">
+                                        </a>
+                                        <h4><a href="{% url 'play' item.song.song_id %}" target="play" >{{ item.song.song_name}}</a></h4>
+                                        <a href="javascript:;" class="J_MoreParts accessories-more">{{ item.song.song_singer }}</a>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <a href="javascript:;" target="_self" id="J_PartsNext" class="next-btn"><i></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+	<script data-main="{% static "js/play.js" %}" src="{% static "js/require.js" %}"></script>
+{% endblock  %}
