@@ -1,0 +1,190 @@
+webclient.py 这个文件从名字上看出来应该是定义一个web 客户端的类。
+
+from time import time
+导入时间
+from six.moves.urllib.parse import urlparse, urlunparse, urldefrag
+导入urlparse,urlunparse,urldefrag
+
+from twisted.web.client import HTTPClientFactory
+导入HTTPClientFactory
+from twisted.web.http import HTTPClient
+导入HTTPClient
+from twisted.internet import defer
+导入defer
+from scrapy.http import Headers
+导入herader
+from scrapy.utils.httpobj import urlparse_cached
+导入urlparse_cached 
+from scrapy.utils.python import to_bytes
+导入to_bytes方法
+from scrapy.responsetypes import responsetypes
+导入responsetypes方法。
+
+def to_bytes(text, encoding=None, errors='strict'):
+    """Return the binary representation of `text`. If `text`
+    is already a bytes object, return it as-is."""
+    if isinstance(text, bytes):
+        return text
+    if not isinstance(text, six.string_types):
+        raise TypeError('to_bytes must receive a unicode, str or bytes '
+                        'object, got %s' % type(text).__name__)
+    if encoding is None:
+        encoding = 'utf-8'
+    return text.encode(encoding, errors)
+这个方法就是转字节的方法， 如果就是bytes就直接返回， 如果是不是unicode,str,就抛出异常， 设置下默认的encoding,
+转化为bytes,这个方法所在的文件里面还有to——unicode unicode_to_str的方法等等。 
+
+def _parsed_url_args(parsed):
+    # Assume parsed is urlparse-d from Request.url,
+    # which was passed via safe_url_string and is ascii-only.
+    b = lambda s: to_bytes(s, encoding='ascii')
+    path = urlunparse(('', '', parsed.path or '/', parsed.params, parsed.query, ''))
+    path = b(path)
+    host = b(parsed.hostname)
+    port = parsed.port
+    scheme = b(parsed.scheme)
+    netloc = b(parsed.netloc)
+    if port is None:
+        port = 443 if scheme == b'https' else 80
+    return scheme, netloc, host, port, path
+这个方法从名字上看是解析url参数的。 
+设置b变量为一个匿名的方法， 使用urlunparse获取路径
+将路径to_bytes, host 也to_bytes,port不用， scheme,netloc bytes话， 
+如果端口没有指定的话， 如果scheme是https就设置443， 其他情况下是80端口。 
+
+def _parse(url):
+    """ Return tuple of (scheme, netloc, host, port, path),
+    all in bytes except for port which is int.
+    Assume url is from Request.url, which was passed via safe_url_string
+    and is ascii-only.
+    """
+    url = url.strip()
+    parsed = urlparse(url)
+    return _parsed_url_args(parsed)
+这里返回一个元组(scheme, netloc, host, port, path)， 除了端口号是int之外，其他的都是bytes.
+这个url 只能是Request.url传递过来 。 
+url调用strip去除空格。使用urlparse获取一个parsed对象。 
+
+
+class ScrapyHTTPPageGetter(HTTPClient): 
+这个类继承了HTTPClient.
+def connectionMade(self):
+    self.headers = Headers() # bucket for response headers
+
+    # Method command
+    self.sendCommand(self.factory.method, self.factory.path)
+    # Headers
+    for key, values in self.factory.headers.items():
+        for value in values:
+            self.sendHeader(key, value)
+    self.endHeaders()
+    # Body
+    if self.factory.body is not None:
+        self.transport.write(self.factory.body)
+    连接模式方法， 定义一个headers对象， 方法命令
+    设置头信息。传输body信息。 
+def lineReceived(self, line):
+    return HTTPClient.lineReceived(self, line.rstrip())
+行接受
+def handleHeader(self, key, value):
+    self.headers.appendlist(key, value)
+处理头信息
+def handleStatus(self, version, status, message):
+    self.factory.gotStatus(version, status, message)
+获取状态信息
+def handleEndHeaders(self):
+    self.factory.gotHeaders(self.headers)
+获取头
+def connectionLost(self, reason):
+    self._connection_lost_reason = reason
+    HTTPClient.connectionLost(self, reason)
+    self.factory.noPage(reason)
+这个方法不知道是干嘛的
+def handleResponse(self, response):
+    if self.factory.method.upper() == b'HEAD':
+        self.factory.page(b'')
+    elif self.length is not None and self.length > 0:
+        self.factory.noPage(self._connection_lost_reason)
+    else:
+        self.factory.page(response)
+    self.transport.loseConnection()
+处理响应，具体代码不知道做什么
+def timeout(self):
+    self.transport.loseConnection()
+
+    # transport cleanup needed for HTTPS connections
+    if self.factory.url.startswith(b'https'):
+        self.transport.stopProducing()
+
+    self.factory.noPage(\
+            defer.TimeoutError("Getting %s took longer than %s seconds." % \
+            (self.factory.url, self.factory.timeout)))
+这个方法不知道干嘛的。
+
+class ScrapyHTTPClientFactory(HTTPClientFactory):
+scrapy实现了HTTPClientFactory，冰鞋部分方法，确保url object 缓存结果。
+
+def __init__(self, request, timeout=180):
+    self._url = urldefrag(request.url)[0]
+    # converting to bytes to comply to Twisted interface
+    self.url = to_bytes(self._url, encoding='ascii')
+    self.method = to_bytes(request.method, encoding='ascii')
+    self.body = request.body or None
+    self.headers = Headers(request.headers)
+    self.response_headers = None
+    self.timeout = request.meta.get('download_timeout') or timeout
+    self.start_time = time()
+    self.deferred = defer.Deferred().addCallback(self._build_response, request)
+
+    # Fixes Twisted 11.1.0+ support as HTTPClientFactory is expected
+    # to have _disconnectedDeferred. See Twisted r32329.
+    # As Scrapy implements it's own logic to handle redirects is not
+    # needed to add the callback _waitForDisconnect.
+    # Specifically this avoids the AttributeError exception when
+    # clientConnectionFailed method is called.
+    self._disconnectedDeferred = defer.Deferred()
+
+    self._set_connection_attributes(request)
+
+    # set Host header based on url
+    self.headers.setdefault('Host', self.netloc)
+
+    # set Content-Length based len of body
+    if self.body is not None:
+        self.headers['Content-Length'] = len(self.body)
+        # just in case a broken http/1.1 decides to keep connection alive
+        self.headers.setdefault("Connection", "close")
+    # Content-Length must be specified in POST method even with no body
+    elif self.method == b'POST':
+        self.headers['Content-Length'] = 0
+定义初始化， 设置url,method,body ,headers , timeout,start_time, defered对象。 
+如果body 不为空， 获取长度设置headers,如果方法为post，则content_length设置为0
+
+def _build_response(self, body, request):
+    request.meta['download_latency'] = self.headers_time-self.start_time
+    status = int(self.status)
+    headers = Headers(self.response_headers)
+    respcls = responsetypes.from_args(headers=headers, url=self._url)
+    return respcls(url=self._url, status=status, headers=headers, body=body)
+构建响应， 设置meta属性， 
+状态码为
+头信息为响应头
+respcls 这个不知道到是啥。 
+
+
+def _set_connection_attributes(self, request):
+    parsed = urlparse_cached(request)
+    self.scheme, self.netloc, self.host, self.port, self.path = _parsed_url_args(parsed)
+    proxy = request.meta.get('proxy')
+    if proxy:
+        self.scheme, _, self.host, self.port, _ = _parse(proxy)
+        self.path = self.url
+设置连接属性， 获取parsed， 获取请求参数， 
+获取请求的协议，修改部分属性的设置。 
+
+
+def gotHeaders(self, headers):
+    self.headers_time = time()
+    self.response_headers = headers
+
+这个获取头信息的。 

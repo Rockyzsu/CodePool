@@ -1,0 +1,143 @@
+这里写这个笔记也是无奈啊， 发现scrapy的核心的代码大量用到deffer对象，还有一些并行的东东。 
+所有这里简单去学习下deffer和并行的方法知识 。 暂时放下scrapy。
+
+twisted.interet.defer 这个官方的api就是下面的网址了。 
+http://twistedmatrix.com/documents/current/api/twisted.internet.defer.html
+我们可以看到这个defer是twisted提供的internet方法的包
+先了解下twisted是个什么鬼吧。 
+http://twistedmatrix.com/documents/current/api/twisted.html 这个官方api说的很精简啊， 
+Twisted: The Framework Of Your Internet. 说明twisted是一个网络框架。 
+我们还是看看wiki上怎么说的。 
+Twisted is an event-driven network programming framework written in Python and licensed under the MIT 
+License.
+Twisted projects variously support TCP, UDP, SSL/TLS, IP multicast, Unix domain sockets, a large number 
+of protocols (including HTTP, XMPP, NNTP, IMAP, SSH, IRC, FTP, and others), and much more. Twisted is 
+based on the event-driven programming paradigm, which means that users of Twisted write short callbacks 
+which are called by the framework.
+大概意思如下：
+Twisted是一个以Python编写的事件驱动的网络编程框架，并根据MIT许可证进行许可。
+twisted的项目各种支持TCP，UDP，SSL / TLS，IP组播，Unix域套接字，大量协议
+（包括HTTP，XMPP，NNTP，IMAP，SSH，IRC，FTP等）等等。 
+Twisted是基于事件驱动的编程范例，这意味着Twisted的用户写入框架调用的简短回调。
+
+知道twisted了， 我建议还是应该了解下twisted的异步处理。
+网址如下http://blog.csdn.net/fxjtoday/article/details/6396932
+这个人的博客写的不错。 http://blog.csdn.net/fangjian1204/article/details/42084273
+defer的官方文档： http://twistedmatrix.com/documents/current/api/twisted.internet.defer.Deferred.html
+
+Method 	addCallbacks 	Add a pair of callbacks (success and error) to this Deferred.
+Method 	addCallback 	Convenience method for adding just a callback.
+Method 	addErrback 	Convenience method for adding just an errback.
+Method 	addBoth 	Convenience method for adding a single callable as both a callback and an errback.
+
+这里有4个方法， addCallbacks,addBoth 一次添加成功和错误的2个回调。addCallback 添加成功的回调 ， addErrback 添加错误的回调。
+
+Method 	addTimeout 	Time out this Deferred by scheduling it to be cancelled after timeout seconds.
+        这个是设置下deferred的时间，超时的话会被取消的。
+Method 	chainDeferred 	Chain another Deferred to this Deferred.
+
+Method 	callback 	Run all success callbacks that have been added to this Deferred.
+    运行成功的回调
+Method 	errback 	Run all error callbacks that have been added to this Deferred.
+    运行所有的错误回调
+Method 	pause 	Stop processing on a Deferred until unpause() is called.
+    暂定deferred执行， 一直到unpause调用才继续执行
+Method 	unpause 	Process all callbacks made since pause() was called.
+    解除defered的pause的暂停操作
+Method 	cancel 	Cancel this Deferred.
+    取消这个defferd
+Method 	__str__ 	Return a string representation of this Deferred.
+Method 	__iter__ 	Undocumented
+Method 	send 	Undocumented
+Method 	asFuture 	Adapt a Deferred into a asyncio.Future which is bound to loop.
+Class Method 	fromFuture 	Adapt an asyncio.Future to a Deferred.
+
+
+
+我们在看看parallel那几个方法吧。 
+我们在defer.py里面有个方法如下 
+def parallel(iterable, count, callable, *args, **named):
+    """Execute a callable over the objects in the given iterable, in parallel,
+    using no more than ``count`` concurrent calls.
+
+    Taken from: http://jcalderone.livejournal.com/24285.html
+    """
+    coop = task.Cooperator()
+    work = (callable(elem, *args, **named) for elem in iterable)
+    return defer.DeferredList([coop.coiterate(work) for _ in range(count)])
+
+所以我们先来看看这个task.Cooperator 是个什么鬼
+Cooperator的官方api 网址： http://twistedmatrix.com/documents/current/api/twisted.internet.task.Cooperator.html
+google翻译了下如下： 
+合作任务调度程序。
+合作任务是一个迭代器，每个迭代代表一个原子工作单元。当迭代器产生时，它允许合作者决定下一个执行其任务。如果迭代器产生defer.Deferred，
+则工作将暂停，直到defer.Deferred触发并完成其回调链。
+当合作者有多个任务时，它会在所有任务之间分配工作。
+有两种方法可以向协作者添加任务，进行合作和协调。合作是更有用的两个，因为它返回一个CooperativeTask，可以暂停，恢复和等待。 
+coiterate具有相同的效果，但只返回一个延迟。当任务完成时触发。
+合作者可以用于许多事情，包括但不限于：
+
+    运行一个或多个计算密集型任务而不阻止
+    通过同时运行总任务的子集来限制并行性
+    做一件事，等待延期开火，做下一件事，重复（即序列化一系列异步任务）
+
+多个合作者不能相互合作，所以在大多数情况下，您应该使用全局的合作伙伴。
+
+Method 	__init__ 	Create a scheduler-like object to which iterators may be added.
+    创建可以添加迭代器的类似于调度程序的对象。
+Method 	coiterate 	Add an iterator to the list of iterators this Cooperator is currently running.
+    将迭代器添加到此Cooperator当前正在运行的迭代器列表中。
+Method 	cooperate 	Start running the given iterator as a long-running cooperative task, by calling next() on it as a periodic timed event.
+    开始运行给定的迭代器作为一个长期运行的协作任务，通过调用next（）作为定期定时事件。
+Method 	start 	Begin scheduling steps.
+    开始安排步骤
+Method 	stop 	Stop scheduling steps. Errback the completion Deferreds of all iterators which have been added and forget about them.
+    停止调度步骤。 Errback完成所有迭代器已被添加并忘记了它们。
+Method 	running 	Is this Cooperator is currently running?
+    这个合作伙伴是否正在运行？
+
+回到那个代码吧。 第一句    coop = task.Cooperator() 创建一个合作者对象。
+ work = (callable(elem, *args, **named) for elem in iterable) 遍历下iterable方法列表， 构造works元组
+coop.coiterate(work) 每一个work都去调用这个方法添加到coop中去， 返回一个deferred数组， 然后转化为defer.DeferredList
+
+在看看这个方法吧
+def process_chain(callbacks, input, *a, **kw):
+    """Return a Deferred built by chaining the given callbacks"""
+    d = defer.Deferred()
+    for x in callbacks:
+        d.addCallback(x, *a, **kw)
+    d.callback(input)
+    return d
+
+创建一个deferred对象， 添加一系列的成功回调方法， 然后执行所有的成功回调。 返回deffered对象。 
+
+
+def process_chain_both(callbacks, errbacks, input, *a, **kw):
+    """Return a Deferred built by chaining the given callbacks and errbacks"""
+    d = defer.Deferred()
+    for cb, eb in zip(callbacks, errbacks):
+        d.addCallbacks(cb, eb, callbackArgs=a, callbackKeywords=kw,
+            errbackArgs=a, errbackKeywords=kw)
+    if isinstance(input, failure.Failure):
+        d.errback(input)
+    else:
+        d.callback(input)
+    return d
+
+这个方法， 创建一个deferred对象， 添加成功和失败回调对。 
+如果input是成功的就调用成功回调， 失败调用失败的回调。 
+
+def process_parallel(callbacks, input, *a, **kw):
+    """Return a Deferred with the output of all successful calls to the given
+    callbacks
+    """
+    dfds = [defer.succeed(input).addCallback(x, *a, **kw) for x in callbacks]
+    d = defer.DeferredList(dfds, fireOnOneErrback=1, consumeErrors=1)
+    d.addCallbacks(lambda r: [x[1] for x in r], lambda f: f.value.subFailure)
+    return d
+遍历 callbacks列表， 使用addcallback添加成功的回调。 
+defer.succeed(input) 应该是返回一个deferred对象。 
+查看下官方api。 
+Function 	succeed 	Return a Deferred that has already had .callback(result) called.
+现获取一个dfds 的数组， 然后转为list ， 再有2个参数。
+添加2个匿名的回调方法。

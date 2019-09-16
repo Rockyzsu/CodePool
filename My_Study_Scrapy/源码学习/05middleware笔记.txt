@@ -1,0 +1,128 @@
+这个文件是中间件的基类了。 
+我们看看吧。 
+
+from collections import defaultdict
+import logging
+import pprint
+
+这几个都是引用默认字典， 日志， 打印的，没啥问题。 
+
+from scrapy.exceptions import NotConfigured
+from scrapy.utils.misc import load_object
+导入了notconfigure没有配置的异常， 导入了load_object去完成字符串到对应类对象的方法。前面已经提到了。 
+
+from scrapy.utils.defer import process_parallel, process_chain, process_chain_both
+这几个方法都在defer里面。 我们定位过去看看。
+def process_parallel(callbacks, input, *a, **kw):
+    """Return a Deferred with the output of all successful calls to the given
+    callbacks
+    """
+    dfds = [defer.succeed(input).addCallback(x, *a, **kw) for x in callbacks]
+    d = defer.DeferredList(dfds, fireOnOneErrback=1, consumeErrors=1)
+    d.addCallbacks(lambda r: [x[1] for x in r], lambda f: f.value.subFailure)
+    return d
+这个方法完成的功能就是返回一个带有所有成功输出的defrred，通过给定的callback方法。
+
+并行处理，得到dfds， 添加一个成功回调。 一个错误回调。 
+def process_chain(callbacks, input, *a, **kw):
+    """Return a Deferred built by chaining the given callbacks"""
+    d = defer.Deferred()
+    for x in callbacks:
+        d.addCallback(x, *a, **kw)
+    d.callback(input)
+    return d这个方法将所有回调方法添加给deferred对象上， 然后给input
+
+def process_chain_both(callbacks, errbacks, input, *a, **kw):
+    """Return a Deferred built by chaining the given callbacks and errbacks"""
+    d = defer.Deferred()
+    for cb, eb in zip(callbacks, errbacks):
+        d.addCallbacks(cb, eb, callbackArgs=a, callbackKeywords=kw,
+            errbackArgs=a, errbackKeywords=kw)
+    if isinstance(input, failure.Failure):
+        d.errback(input)
+    else:
+        d.callback(input)
+    return d
+这个是上面的升级版吧， 添加回调。 
+
+logger = logging.getLogger(__name__) 全局的一个日志对象。
+
+
+def __init__(self, *middlewares):
+    self.middlewares = middlewares
+    self.methods = defaultdict(list)
+    for mw in middlewares:
+        self._add_middleware(mw)
+构造函数， 接受中间件列表， 构造方法的默认dict ， 添加中间件。
+
+@classmethod
+def _get_mwlist_from_settings(cls, settings):
+    raise NotImplementedError
+这个方法什么鬼， 直接抛出异常？， 应该是写一个方法打个桩子吧， 以后可能后去完善它， 然后调用它的吧。 或者子类里面实现吧 。
+如果子类不实现就抛出异常， 感觉应该是第二种情况， 这个其实和c++的接口是一样的。 强制子类去实现指定的方法。 
+
+def from_settings(cls, settings, crawler=None):
+    mwlist = cls._get_mwlist_from_settings(settings)
+    middlewares = []
+    enabled = []
+    for clspath in mwlist:
+        try:
+            mwcls = load_object(clspath)
+            if crawler and hasattr(mwcls, 'from_crawler'):
+                mw = mwcls.from_crawler(crawler)
+            elif hasattr(mwcls, 'from_settings'):
+                mw = mwcls.from_settings(settings)
+            else:
+                mw = mwcls()
+            middlewares.append(mw)
+            enabled.append(clspath)
+        except NotConfigured as e:
+            if e.args:
+                clsname = clspath.split('.')[-1]
+                logger.warning("Disabled %(clsname)s: %(eargs)s",
+                                {'clsname': clsname, 'eargs': e.args[0]},
+                                extra={'crawler': crawler})
+
+    logger.info("Enabled %(componentname)ss:\n%(enabledlist)s",
+                {'componentname': cls.component_name,
+                    'enabledlist': pprint.pformat(enabled)},
+                extra={'crawler': crawler})
+    return cls(*middlewares)
+使用子类实现的方法_get_mwlist_from_settings 完成从settings里面获取中间件， 遍历中间件列表。 
+如果中间件有from_crawler,from settings 这些方法，就调用下，去构造一个中间件对象。
+添加到对应的中间件对象列表中去，这里mwlist只是中间件的类名字列表， middlearess存储的是中间件的对象。
+enabled 启用的中间件类列表。如果有异常， 说明配置文件给定的中间件不存在或者没法实例化。 
+日志信息记录启动了那些中间件。返回中间件。
+@classmethod
+def from_crawler(cls, crawler):
+    return cls.from_settings(crawler.settings, crawler)
+调用对应的中间件方法from_settings 方法去完成类实例的创建
+
+
+def _add_middleware(self, mw):
+    if hasattr(mw, 'open_spider'):
+        self.methods['open_spider'].append(mw.open_spider)
+    if hasattr(mw, 'close_spider'):
+        self.methods['close_spider'].insert(0, mw.close_spider)
+添加中间件的房， 如果有open_spider，close_spider方法的话， 添加到对应方法去。 
+我们这里可以发现， open是append的close是insert 0位置。 
+也就是说， 如果一个中间件的open添加早那么他的close就后关闭的。
+
+def _process_parallel(self, methodname, obj, *args):
+    return process_parallel(self.methods[methodname], obj, *args)
+处理平行的， 这个方法不知道具体怎么并行的。 
+def _process_chain(self, methodname, obj, *args):
+    return process_chain(self.methods[methodname], obj, *args)
+    处理方法链
+def _process_chain_both(self, cb_methodname, eb_methodname, obj, *args):
+    return process_chain_both(self.methods[cb_methodname], \
+        self.methods[eb_methodname], obj, *args)
+处理成功和错误两个链
+def open_spider(self, spider):
+    return self._process_parallel('open_spider', spider)
+
+def close_spider(self, spider):
+    return self._process_parallel('close_spider', spider)
+打开爬虫， 关闭爬虫， 都是并行处理的。 
+
+从这个文件可以看出来， 我们要自己写个中间件的话， 要实现open_spider,close_spider, from_crawler，from_setting这些方法。

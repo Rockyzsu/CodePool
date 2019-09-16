@@ -1,0 +1,252 @@
+我们这里学习下爬虫中间件吧。 
+
+import six
+from twisted.python.failure import Failure
+导入six包和导入failure
+
+from scrapy.middleware import MiddlewareManager
+这里导入了一个中间件管理的基类，应该适用于后续的继承的吧。 
+
+from scrapy.utils.defer import mustbe_deferred
+from scrapy.utils.conf import build_component_list
+这里从defer里面和conf里面导入2个方法。 先看看具体实现方法吧。 
+
+def mustbe_deferred(f, *args, **kw):
+    """Same as twisted.internet.defer.maybeDeferred, but delay calling
+    callback/errback to next reactor loop
+    """
+    try:
+        result = f(*args, **kw)
+    # FIXME: Hack to avoid introspecting tracebacks. This to speed up
+    # processing of IgnoreRequest errors which are, by far, the most common
+    # exception in Scrapy - see #125
+    except IgnoreRequest as e:
+        return defer_fail(failure.Failure(e))
+    except:
+        return defer_fail(failure.Failure())
+    else:
+        return defer_result(result)
+这个方法有点类似于defer_result 的意思。 不管啥请求都是调用了defer_fail或者defer_result . 都等100ms完成读写。
+
+def build_component_list(compdict, custom=None, convert=update_classpath):
+    """Compose a component list from a { class: order } dictionary."""
+
+    def _check_components(complist):
+        if len({convert(c) for c in complist}) != len(complist):
+            raise ValueError('Some paths in {!r} convert to the same object, '
+                             'please update your settings'.format(complist))
+
+    def _map_keys(compdict):
+        if isinstance(compdict, BaseSettings):
+            compbs = BaseSettings()
+            for k, v in six.iteritems(compdict):
+                prio = compdict.getpriority(k)
+                if compbs.getpriority(convert(k)) == prio:
+                    raise ValueError('Some paths in {!r} convert to the same '
+                                     'object, please update your settings'
+                                     ''.format(list(compdict.keys())))
+                else:
+                    compbs.set(convert(k), v, priority=prio)
+            return compbs
+        else:
+            _check_components(compdict)
+            return {convert(k): v for k, v in six.iteritems(compdict)}
+
+    def _validate_values(compdict):
+        """Fail if a value in the components dict is not a real number or None."""
+        for name, value in six.iteritems(compdict):
+            if value is not None and not isinstance(value, numbers.Real):
+                raise ValueError('Invalid value {} for component {}, please provide ' \
+                                 'a real number or None instead'.format(value, name))
+
+    # BEGIN Backwards compatibility for old (base, custom) call signature
+    if isinstance(custom, (list, tuple)):
+        _check_components(custom)
+        return type(custom)(convert(c) for c in custom)
+
+    if custom is not None:
+        compdict.update(custom)
+    # END Backwards compatibility
+
+    _validate_values(compdict)
+    compdict = without_none_values(_map_keys(compdict))
+    return [k for k, v in sorted(six.iteritems(compdict), key=itemgetter(1))]
+这个方法真的长 啊， 内部嵌套了几个方法。 
+我们把内部嵌套的几个方法都分析下吧。 
+    def _check_components(complist):
+        if len({convert(c) for c in complist}) != len(complist):
+            raise ValueError('Some paths in {!r} convert to the same object, '
+                             'please update your settings'.format(complist))
+这个方法从名字上看是检查组件的。先判断下长度相等不， 如果不等就抛出异常了。 
+判断过程中用到了convert方法， 发现这个方法有默认值的。也就是convert使用默认的update_classpath方法处理
+我们定位过去看看。
+def update_classpath(path):
+    """Update a deprecated path from an object with its new location"""
+    for prefix, replacement in DEPRECATION_RULES:
+        if path.startswith(prefix):
+            new_path = path.replace(prefix, replacement, 1)
+            warnings.warn("`{}` class is deprecated, use `{}` instead".format(path, new_path),
+                          ScrapyDeprecationWarning)
+            return new_path
+    return path
+这里有个规则啊 ，如果以旧的开头， 将他换成新的，然后提示一个警告信息。 返回新的路径。
+规则我这里也粘贴过来吧。 
+
+DEPRECATION_RULES = [
+    ('scrapy.contrib_exp.downloadermiddleware.decompression.', 'scrapy.downloadermiddlewares.decompression.'),
+    ('scrapy.contrib_exp.iterators.', 'scrapy.utils.iterators.'),
+    ('scrapy.contrib.downloadermiddleware.', 'scrapy.downloadermiddlewares.'),
+    ('scrapy.contrib.exporter.', 'scrapy.exporters.'),
+    ('scrapy.contrib.linkextractors.', 'scrapy.linkextractors.'),
+    ('scrapy.contrib.loader.processor.', 'scrapy.loader.processors.'),
+    ('scrapy.contrib.loader.', 'scrapy.loader.'),
+    ('scrapy.contrib.pipeline.', 'scrapy.pipelines.'),
+    ('scrapy.contrib.spidermiddleware.', 'scrapy.spidermiddlewares.'),
+    ('scrapy.contrib.spiders.', 'scrapy.spiders.'),
+    ('scrapy.contrib.', 'scrapy.extensions.'),
+    ('scrapy.command.', 'scrapy.commands.'),
+    ('scrapy.dupefilter.', 'scrapy.dupefilters.'),
+    ('scrapy.linkextractor.', 'scrapy.linkextractors.'),
+    ('scrapy.telnet.', 'scrapy.extensions.telnet.'),
+    ('scrapy.spider.', 'scrapy.spiders.'),
+    ('scrapy.squeue.', 'scrapy.squeues.'),
+    ('scrapy.statscol.', 'scrapy.statscollectors.'),
+    ('scrapy.utils.decorator.', 'scrapy.utils.decorators.'),
+    ('scrapy.spidermanager.SpiderManager', 'scrapy.spiderloader.SpiderLoader'),
+]
+看完这个方法，我们就明白了上面的代码
+  def _check_components(complist):
+        if len({convert(c) for c in complist}) != len(complist):
+            raise ValueError('Some paths in {!r} convert to the same object, '
+                             'please update your settings'.format(complist))
+    这个他判定长度不等的情况一般是有新的旧的设置，重复导致的。 让你检查你的设置。
+
+def _map_keys(compdict):
+    if isinstance(compdict, BaseSettings):
+        compbs = BaseSettings()
+        for k, v in six.iteritems(compdict):
+            prio = compdict.getpriority(k)
+            if compbs.getpriority(convert(k)) == prio:
+                raise ValueError('Some paths in {!r} convert to the same '
+                                    'object, please update your settings'
+                                    ''.format(list(compdict.keys())))
+            else:
+                compbs.set(convert(k), v, priority=prio)
+        return compbs
+    else:
+        _check_components(compdict)
+        return {convert(k): v for k, v in six.iteritems(compdict)}
+这个判定下compdict是basesettings的子类， 如果是的话，构造一个basesettings， 遍历compdict
+获取指定key的优先级prio, 如果优先级有相等的是要抛出异常的。其他情况下， 把优先级设置为compdict中指定的优先级。 
+如果不是basesetting的子类。 就调用check_components去检查设置重复，然后返回一个dict对象。 
+
+def _validate_values(compdict):
+    """Fail if a value in the components dict is not a real number or None."""
+    for name, value in six.iteritems(compdict):
+        if value is not None and not isinstance(value, numbers.Real):
+            raise ValueError('Invalid value {} for component {}, please provide ' \
+                                'a real number or None instead'.format(value, name))
+    这个方法就是判定compdict里面value不是none或者real的话就抛出异常。 
+
+几个内嵌的小方法看完了， 我们还是回到这个build_component_list 这个方法。 
+
+如果custom是list,tuple的实例的话调用检查个数， 返回指定类对象。 这里返回一个list，或者元组。 
+
+如果custome 不是none的话，就更新下comdict 
+验证下compdict,都是数值的。 
+def without_none_values(iterable):
+    """Return a copy of `iterable` with all `None` entries removed.
+
+    If `iterable` is a mapping, return a dictionary where all pairs that have
+    value `None` have been removed.
+    """
+    try:
+        return {k: v for k, v in six.iteritems(iterable) if v is not None}
+    except AttributeError:
+        return type(iterable)((v for v in iterable if v is not None))
+        这个方法就是把none去掉。 如果是映射的话去掉。 
+        这个方法的异常不知道为何要写这个。 方法吧， 可能这个方法其他地方还有其他用地。
+然后这个方法返回一个排序的key数值， 具体排序方法使用了itemgetter(1) ，定位过去看下。 
+    """
+    Return a callable object that fetches the given item(s) from its operand.
+    After f = itemgetter(2), the call f(r) returns r[2].
+    After g = itemgetter(2, 5, 3), the call g(r) returns (r[2], r[5], r[3])
+    """
+这个说明够详细了吧。 根据value去排序key的上面的语句。 
+
+
+接下来就是爬虫中间件的具体实现代码了。 我们这里可以看到他继承了。 中间件管理类， 我们看看， 如果简单的话， 就先看看
+如果复杂的话就先放放。
+
+def _get_mwlist_from_settings(cls, settings):
+    return build_component_list(settings.getwithbase('SPIDER_MIDDLEWARES'))
+从名字上， 我们知道这个是从settings里面获取中间件的列表的。没问题的。 
+
+  def _add_middleware(self, mw):
+        super(SpiderMiddlewareManager, self)._add_middleware(mw)
+        if hasattr(mw, 'process_spider_input'):
+            self.methods['process_spider_input'].append(mw.process_spider_input)
+        if hasattr(mw, 'process_spider_output'):
+            self.methods['process_spider_output'].insert(0, mw.process_spider_output)
+        if hasattr(mw, 'process_spider_exception'):
+            self.methods['process_spider_exception'].insert(0, mw.process_spider_exception)
+        if hasattr(mw, 'process_start_requests'):
+            self.methods['process_start_requests'].insert(0, mw.process_start_requests)
+这个定义了一个添加中间件的方法
+先调用基类的add方法， 然后判断判定是否有 process_spider_input 等等方法。 
+如果有的话， 把这个中间件的方法添加到对应的方法链上去。 
+这里有4个。 分别是。
+process_spider_input，
+process_spider_output
+process_spider_exception
+process_start_requests
+我们这里可以看出， 如果我们自己要写爬虫中间件， 重点是这4个方法的。 切记切记。 
+
+scrape_response 这个方法太长了。内部也嵌套了几个方法， 我们还是先看看内部的小方法吧。 
+def process_spider_input(response):
+    for method in self.methods['process_spider_input']:
+        try:
+            result = method(response=response, spider=spider)
+            assert result is None, \
+                    'Middleware %s must returns None or ' \
+                    'raise an exception, got %s ' \
+                    % (fname(method), type(result))
+        except:
+            return scrape_func(Failure(), request, spider)
+    return scrape_func(response, request, spider)
+处理爬虫的中间件个各个 process_spider_input 方法。
+
+def process_spider_exception(_failure):
+    exception = _failure.value
+    for method in self.methods['process_spider_exception']:
+        result = method(response=response, exception=exception, spider=spider)
+        assert result is None or _isiterable(result), \
+            'Middleware %s must returns None, or an iterable object, got %s ' % \
+            (fname(method), type(result))
+        if result is not None:
+            return result
+    return _failure 
+处理爬虫中间件的各个process_spider_exception方法。结果必须是none或者可迭代的。 
+
+def process_spider_output(result):
+    for method in self.methods['process_spider_output']:
+        result = method(response=response, result=result, spider=spider)
+        assert _isiterable(result), \
+            'Middleware %s must returns an iterable object, got %s ' % \
+            (fname(method), type(result))
+    return result
+
+处理爬虫中间件的各个process_spider_exception方法。结果可迭代的。
+
+这个scrape_response 方法， fname是获取到类的名字，  方法的名字
+
+dfd = mustbe_deferred(process_spider_input, response)
+dfd.addErrback(process_spider_exception)
+dfd.addCallback(process_spider_output)
+
+这段代码， 创建延迟对象， 添加错误回调方法，添加成功回调方法。 
+
+
+def process_start_requests(self, start_requests, spider):
+    return self._process_chain('process_start_requests', start_requests, spider)
+这个方法， 就是处理开始请求的。调用了_process_chain处理链， 接受开始的请求和对应的爬虫。 具体还是需要去基类去看看这个方法的。

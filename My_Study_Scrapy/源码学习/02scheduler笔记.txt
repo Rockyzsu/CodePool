@@ -1,0 +1,281 @@
+scheduler.py 看起来要比那个engine.py简单点
+我们看看它的代码吧。 
+import os
+import json
+import logging
+from os.path import join, exists
+
+from scrapy.utils.reqser import request_to_dict, request_from_dict
+from scrapy.utils.misc import load_object
+from scrapy.utils.job import job_dir
+
+logger = logging.getLogger(__name__)
+
+前面的主要导入了常用的包就不说了。
+from scrapy.utils.reqser import request_to_dict, request_from_dict
+这里导入了2个方法， request_to_dict, request_from_dict 看起来正反2个方法对。我们定位过去看看吧。
+
+def request_to_dict(request, spider=None):
+    """Convert Request object to a dict.
+
+    If a spider is given, it will try to find out the name of the spider method
+    used in the callback and store that as the callback.
+    """
+    cb = request.callback
+    if callable(cb):
+        cb = _find_method(spider, cb)
+    eb = request.errback
+    if callable(eb):
+        eb = _find_method(spider, eb)
+    d = {
+        'url': to_unicode(request.url),  # urls should be safe (safe_string_url)
+        'callback': cb,
+        'errback': eb,
+        'method': request.method,
+        'headers': dict(request.headers),
+        'body': request.body,
+        'cookies': request.cookies,
+        'meta': request.meta,
+        '_encoding': request._encoding,
+        'priority': request.priority,
+        'dont_filter': request.dont_filter,
+        'flags': request.flags
+    }
+    if type(request) is not Request:
+        d['_class'] = request.__module__ + '.' + request.__class__.__name__
+    return d
+这个方法从注释上看就是将请求对象转化为字典对象
+详细看看，想获取request的2个callback,一个成功的，一个失败的，通过方法（_find_method,暂时不去看这个代码了。一会在看)获取到cb,eb
+接下来就是构造了一个dict对象了，url unicode下，（一会定位看看这个方法），将request的请求方法，请求头信息，请求body，cookies,meta数据，
+请求编码，等信息赋值给dict对象了。
+如果请求的类型不是request类的话，添加一个_class属性为模块.类名字（ if type(request) is not Request:
+        d['_class'] = request.__module__ + '.' + request.__class__.__name__）
+
+我们在看看
+def request_from_dict(d, spider=None):
+    """Create Request object from a dict.
+
+    If a spider is given, it will try to resolve the callbacks looking at the
+    spider for methods with the same name.
+    """
+    cb = d['callback']
+    if cb and spider:
+        cb = _get_method(spider, cb)
+    eb = d['errback']
+    if eb and spider:
+        eb = _get_method(spider, eb)
+    request_cls = load_object(d['_class']) if '_class' in d else Request
+    return request_cls(
+        url=to_native_str(d['url']),
+        callback=cb,
+        errback=eb,
+        method=d['method'],
+        headers=d['headers'],
+        body=d['body'],
+        cookies=d['cookies'],
+        meta=d['meta'],
+        encoding=d['_encoding'],
+        priority=d['priority'],
+        dont_filter=d['dont_filter'],
+        flags=d.get('flags'))
+这个方法主要从dict构造一个request对象。通过_get_method方法获取成功和错误的回调。判断下字典是否有_class属性，有的话不是request，否则是。然后就是构造一个request_cls对象了。
+主要用到了几个方法to_native_str
+
+上面的2个方法看起来都很简单，我们在对这2个方法里面用到的方法进行分析吧。 
+
+def _find_method(obj, func):
+    if obj:
+        try:
+            func_self = six.get_method_self(func)
+        except AttributeError:  # func has no __self__
+            pass
+        else:
+            if func_self is obj:
+                return six.get_method_function(func).__name__
+    raise ValueError("Function %s is not a method of: %s" % (func, obj))
+    对象为空就触发一个异常，不为空，就调用get_method_self,获取__self__ ，如果获取到的和obj一样的话再去获取获取__func__的name
+def _get_method(obj, name):
+    name = str(name)
+    try:
+        return getattr(obj, name)
+    except AttributeError:
+        raise ValueError("Method %r not found in: %s" % (name, obj))
+    有对象，有方法名字（str) 的， 直接使用内置的getattr即可。这个要比上面的那个好理解。
+
+在分析下to_unicode，to_native_str 这2个方法吧， 看起来也是成对的。
+def to_unicode(text, encoding=None, errors='strict'):
+    """Return the unicode representation of a bytes object `text`. If `text`
+    is already an unicode object, return it as-is."""
+    if isinstance(text, six.text_type):
+        return text
+    if not isinstance(text, (bytes, six.text_type)):
+        raise TypeError('to_unicode must receive a bytes, str or unicode '
+                        'object, got %s' % type(text).__name__)
+    if encoding is None:
+        encoding = 'utf-8'
+    return text.decode(encoding, errors)
+    如果对象是text的，直接返回，如果不是bytes,six.text_type,那就直接抛出异常，如果没有指定编码，指定编码为utf-8的。然后调用decode 转码。
+def to_native_str(text, encoding=None, errors='strict'):
+""" Return str representation of `text`
+(bytes in Python 2.x and unicode in Python 3.x). """
+if six.PY2:
+    return to_bytes(text, encoding, errors)
+else:
+    return to_unicode(text, encoding, errors)
+    如果是py2版本的调用to_bytes函数， 之后的版本调用to_unicode方法。
+
+from scrapy.utils.misc import load_object 这个东西我们应该很清楚了。 在engine笔记里面提到了， 他就是将str转化为一个类对象等等。
+from scrapy.utils.job import job_dir 这个东西不清楚， 定位过去看看吧
+def job_dir(settings):
+    path = settings['JOBDIR']
+    if path and not os.path.exists(path):
+        os.makedirs(path)
+    return path
+这个方法很简单，就是从settings里面获取JOBDIR属性， 如果这个路径不为空，不存在就创建目录，不过这里貌似不是太严谨吧。 没有判断这个目录是不是有效目录。 是不是需要完善下呢。 
+
+logger = logging.getLogger(__name__) 获得一个全局的logger对象。
+
+这个调度器 主要有几个方法吧， 都看看吧。 
+  @classmethod
+    def from_crawler(cls, crawler):
+        settings = crawler.settings
+        dupefilter_cls = load_object(settings['DUPEFILTER_CLASS'])
+        dupefilter = dupefilter_cls.from_settings(settings)
+        pqclass = load_object(settings['SCHEDULER_PRIORITY_QUEUE'])
+        dqclass = load_object(settings['SCHEDULER_DISK_QUEUE'])
+        mqclass = load_object(settings['SCHEDULER_MEMORY_QUEUE'])
+        logunser = settings.getbool('LOG_UNSERIALIZABLE_REQUESTS', settings.getbool('SCHEDULER_DEBUG'))
+        return cls(dupefilter, jobdir=job_dir(settings), logunser=logunser,
+                   stats=crawler.stats, pqclass=pqclass, dqclass=dqclass, mqclass=mqclass)
+这个方法，从crawler的设置获取各个属性， 然后使用load_object 获取对应类。
+    def __init__(self, dupefilter, jobdir=None, dqclass=None, mqclass=None,
+                 logunser=False, stats=None, pqclass=None):
+        self.df = dupefilter
+        self.dqdir = self._dqdir(jobdir)
+        self.pqclass = pqclass
+        self.dqclass = dqclass
+        self.mqclass = mqclass
+        self.logunser = logunser
+        self.stats = stats
+
+    这个方法和上面的方法一起看吧， 主要有以下几个名词， 调度优先级队列，调度磁盘队列，调度内存队列。调度debug开启是否，日志非序列化请求，重复类。
+    上面很多参数， 默认值可以从default_setting文件里面找得到的。我这里把 他粘出来吧
+    SCHEDULER = 'scrapy.core.scheduler.Scheduler'
+    SCHEDULER_DISK_QUEUE = 'scrapy.squeues.PickleLifoDiskQueue'
+    SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.LifoMemoryQueue'
+    SCHEDULER_PRIORITY_QUEUE = 'queuelib.PriorityQueue'
+
+    def has_pending_requests(self):
+        return len(self) > 0
+    这个方法应该是获取是否还有请求没处理。 返回true或者false.
+
+  def open(self, spider):
+        self.spider = spider
+        self.mqs = self.pqclass(self._newmq)
+        self.dqs = self._dq() if self.dqdir else None
+        return self.df.open()
+
+    def close(self, reason):
+        if self.dqs:
+            prios = self.dqs.close()
+            with open(join(self.dqdir, 'active.json'), 'w') as f:
+                json.dump(prios, f)
+        return self.df.close(reason)
+
+    这2个方法就是打开和关闭调度器的方法了吧， 
+    打开方法： 设置当前的爬虫，设置当前的内存队列，磁盘队列，内存队列初始值为调度优先级队列。
+    关闭方法： 判断dqs， 关闭dqs，打开active.json文件， 把prios信息写进去。关闭df
+
+  def enqueue_request(self, request):
+        if not request.dont_filter and self.df.request_seen(request):
+            self.df.log(request, self.spider)
+            return False
+        dqok = self._dqpush(request)
+        if dqok:
+            self.stats.inc_value('scheduler/enqueued/disk', spider=self.spider)
+        else:
+            self._mqpush(request)
+            self.stats.inc_value('scheduler/enqueued/memory', spider=self.spider)
+        self.stats.inc_value('scheduler/enqueued', spider=self.spider)
+        return True
+    如果请求是不过滤的，过滤器df的请求处理过。记录日志， 返回false.
+    self._dqpush 这个是磁盘队列加入这个请求
+    如果成功，就给统计信息的disk的对应爬虫加1.
+    其他情况的话，就给统计信息的memory的对应爬虫加1
+    总的也需要加1，然后返回true.
+
+def next_request(self):
+    request = self.mqs.pop()
+    if request:
+        self.stats.inc_value('scheduler/dequeued/memory', spider=self.spider)
+    else:
+        request = self._dqpop()
+        if request:
+            self.stats.inc_value('scheduler/dequeued/disk', spider=self.spider)
+    if request:
+        self.stats.inc_value('scheduler/dequeued', spider=self.spider)
+    return request
+这个方法就是获取下一个请求的， 先从内存队列mqs里面pop一个，给memory加1，如果内存中为空就从磁盘队列dq里面pop一个。然后disk加1，如果request不为空， 就给dequed加1
+注意这个方法和上个方法， 一个是入，一个是出 的。 
+统计信息也是， 一个统计到en队列中， 一个统计到de队列去。
+
+ def __len__(self):
+        return len(self.dqs) + len(self.mqs) if self.dqs else len(self.mqs)
+这个方法着实简单了。 就是个三目元算而已， 如果磁盘队列不为空的话， 就是磁盘队列加内存队列的长度， 否则就是内存队列的长度。
+
+
+下面的几个方法，_dqpush，_mqpush，_dqpop，_newmq，_newdq，_dq，_dqdir
+从方法名字，看看有push,you pop， new ， 大概可以知道这个是构造，添加，删除操作。
+那我们就先看看new的吧。 
+
+    def _newmq(self, priority):
+        return self.mqclass()
+
+    def _newdq(self, priority):
+        return self.dqclass(join(self.dqdir, 'p%s' % priority))
+
+    构造一个内存队列， 构造一个磁盘队列。 
+    具体的列可以看出从setting里面读取过来的。实例化的在这个方面里面的。 返回值就是对应的对象。 
+接下来我们看看push的吧。  看看他是怎么push的。 
+
+    def _mqpush(self, request):
+        self.mqs.push(request, -request.priority)
+    内存队列里面push一个请求， 优先级为请求的负值， 这里不是太清楚为何为负值， 先看下面的吧， 一会在弄明白为何的。
+
+   def _dqpush(self, request):
+        if self.dqs is None:
+            return
+        try:
+            reqd = request_to_dict(request, self.spider)
+            self.dqs.push(reqd, -request.priority)
+        except ValueError as e:  # non serializable request
+            if self.logunser:
+                msg = ("Unable to serialize request: %(request)s - reason:"
+                       " %(reason)s - no more unserializable requests will be"
+                       " logged (stats being collected)")
+                logger.warning(msg, {'request': request, 'reason': e},
+                               exc_info=True, extra={'spider': self.spider})
+                self.logunser = False
+            self.stats.inc_value('scheduler/unserializable',
+                                 spider=self.spider)
+            return
+        else:
+            return True
+    这个代码看起来很多啊， 不过仔细分析核心很简单， 就是请求转化为字典， 然后把dict放到磁盘队列中， 如果有异常，说明是无法序列化请求，构造msg信息。 记录警告信息。并记录序列化失败个数，最总返回true，有异常那就返回none
+我们看完了push在看看pop吧 ，这个pop只有一个。 暂时不明白为何不是2个呢
+    def _dqpop(self):
+        if self.dqs:
+            d = self.dqs.pop()
+            if d:
+                return request_from_dict(d, self.spider)    
+    这个方法很是简单， 从磁盘队列获取pop一个dict，然后将dict转为request。 返回回去。
+
+方法还有2个， 一个_dqdir，一个是_dq。 我们先看简单的
+    def _dqdir(self, jobdir):
+        if jobdir:
+            dqdir = join(jobdir, 'requests.queue')
+            if not exists(dqdir):
+                os.makedirs(dqdir)
+            return dqdir
+    jobdir 这个也是从设置里面获取的。 貌似我没有从默认设置里面看到这个配置啊。 如果有设置的话， 就会创建一个目录，并返回这个目录
+    

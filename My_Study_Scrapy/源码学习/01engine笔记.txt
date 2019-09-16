@@ -1,0 +1,500 @@
+engine.py文件分析
+我们知道爬虫程序就核心的就是爬虫引擎了。我们就先分析下引擎的代码。
+从这个文件的开头的2行注释如下：
+"""
+This is the Scrapy engine which controls the Scheduler, Downloader and Spiders.
+
+For more information see docs/topics/architecture.rst
+
+"""
+我们可以知道这个爬虫引擎是控制调度器，下载器和爬虫的。
+
+接下来导入一系列的包。
+import logging
+from time import time
+
+from twisted.internet import defer, task
+from twisted.python.failure import Failure
+
+from scrapy import signals
+from scrapy.core.scraper import Scraper
+from scrapy.exceptions import DontCloseSpider
+from scrapy.http import Response, Request
+from scrapy.utils.misc import load_object
+from scrapy.utils.reactor import CallLaterOnce
+from scrapy.utils.log import logformatter_adapter, failure_to_exc_info
+
+logger = logging.getLogger(__name__)
+
+我们这里简单分析下上面的包，日志，时间，我们应该都非常清楚了吧，Twisted是用Python实现的基于事件驱动的网络引擎框架，这里引用了它，可能用于网络方面的吧，
+接下来导入了一些自己的包
+我们先看第一个from scrpy import signals
+我们定位到这个signals文件发现文件内容如下
+"""
+Scrapy signals
+
+These signals are documented in docs/topics/signals.rst. Please don't add new
+signals here without documenting them there.
+"""
+
+engine_started = object()
+engine_stopped = object()
+spider_opened = object()
+spider_idle = object()
+spider_closed = object()
+spider_error = object()
+request_scheduled = object()
+request_dropped = object()
+response_received = object()
+response_downloaded = object()
+item_scraped = object()
+item_dropped = object()
+
+# for backwards compatibility
+stats_spider_opened = spider_opened
+stats_spider_closing = spider_closed
+stats_spider_closed = spider_closed
+
+item_passed = item_scraped
+
+request_received = request_scheduled
+
+上面可以看到，就是定义了几个事件而已，后面的几个定义是为了向后兼容的。
+
+engine_started          引擎开始
+engine_stopped          引擎结束
+spider_opened           爬虫打开
+spider_idle             爬虫空闲
+spider_closed           爬虫关闭
+spider_error            爬虫错误
+request_scheduled       请求被调度
+request_dropped         请求被丢弃
+response_received       响应被接受
+response_downloaded     响应被下载
+item_scraped            item被抓取到
+item_dropped            item被丢弃
+
+from scrapy.core.scraper import Scraper 这句代码导入的应该是scrapy爬虫代码
+from scrapy.exceptions import DontCloseSpider 这句代码应该是从自定义的类里面导入了一个异常类
+from scrapy.http import Response, Request 这个从http里面导入了response,request 看起来这个非常重要的样子。
+from scrapy.utils.misc import load_object  这个是从scrpy的工具里的杂项导入了load_object 不知道是啥，我们定位过去看看。
+def load_object(path):
+    """Load an object given its absolute object path, and return it.
+
+    object can be a class, function, variable or an instance.
+    path ie: 'scrapy.downloadermiddlewares.redirect.RedirectMiddleware'
+    """
+
+    try:
+        dot = path.rindex('.')
+    except ValueError:
+        raise ValueError("Error loading object '%s': not a full path" % path)
+
+    module, name = path[:dot], path[dot+1:]
+    mod = import_module(module)
+
+    try:
+        obj = getattr(mod, name)
+    except AttributeError:
+        raise NameError("Module '%s' doesn't define any object named '%s'" % (module, name))
+
+    return obj
+
+从注释中我们可以看到这个方法是传递一个str，返回一个类，方法，变量或者实例
+
+from scrapy.utils.reactor import CallLaterOnce这个也不清楚，我们定位过去看看吧。
+class CallLaterOnce(object):
+    """Schedule a function to be called in the next reactor loop, but only if
+    it hasn't been already scheduled since the last time it ran.
+    """
+
+    def __init__(self, func, *a, **kw):
+        self._func = func
+        self._a = a
+        self._kw = kw
+        self._call = None
+
+    def schedule(self, delay=0):
+        if self._call is None:
+            self._call = reactor.callLater(delay, self)
+
+    def cancel(self):
+        if self._call:
+            self._call.cancel()
+
+    def __call__(self):
+        self._call = None
+        return self._func(*self._a, **self._kw)
+这个注释，没有看太懂，百度翻译了下（google翻译的这个不准确）意思如下：
+安排一个在下一个反应堆循环中调用的函数，但是只有在它上次运行时它还没有被调度。
+
+from scrapy.utils.log import logformatter_adapter, failure_to_exc_info 这两个应该都是日志相关的，暂时不去看他。
+
+logger = logging.getLogger(__name__)  全局的日志对象
+
+自己看这个文件，这个文件提供了2个类，Slot和ExecutionEngine
+简单看下Slot的代码
+class Slot(object):
+
+    def __init__(self, start_requests, close_if_idle, nextcall, scheduler):
+        self.closing = False
+        self.inprogress = set() # requests in progress
+        self.start_requests = iter(start_requests)
+        self.close_if_idle = close_if_idle
+        self.nextcall = nextcall
+        self.scheduler = scheduler
+        self.heartbeat = task.LoopingCall(nextcall.schedule)
+
+    def add_request(self, request):
+        self.inprogress.add(request)
+
+    def remove_request(self, request):
+        self.inprogress.remove(request)
+        self._maybe_fire_closing()
+
+    def close(self):
+        self.closing = defer.Deferred()
+        self._maybe_fire_closing()
+        return self.closing
+
+    def _maybe_fire_closing(self):
+        if self.closing and not self.inprogress:
+            if self.nextcall:
+                self.nextcall.cancel()
+                if self.heartbeat.running:
+                    self.heartbeat.stop()
+            self.closing.callback(None)
+构造函数，貌似需要接受开始请求的列表，空闲是否关闭的布尔值，下一次调用（还是回调，这个暂时不清楚），调度器。
+提供了几个方法添加请求，删除请求，关闭自己，触发关闭方法
+整体看下， 有个heartbeat属性在init的时候初始化了，在close的时候调用stop。
+
+接下来看下ExecutionEngine 类，看代码很多，应该很是重要的。
+init:   接受crawler爬虫，spider_close_callback 完成初始化工作
+  def __init__(self, crawler, spider_closed_callback):
+        self.crawler = crawler
+        self.settings = crawler.settings
+        self.signals = crawler.signals
+        self.logformatter = crawler.logformatter
+        self.slot = None
+        self.spider = None
+        self.running = False
+        self.paused = False
+        self.scheduler_cls = load_object(self.settings['SCHEDULER'])
+        downloader_cls = load_object(self.settings['DOWNLOADER'])
+        self.downloader = downloader_cls(crawler)
+        self.scraper = Scraper(crawler)
+        self._spider_closed_callback = spider_closed_callback
+        接受初始化的几个参数，设置、信号、日志格式、从crawler那里获取到，从设置中加载日志调度类，从设置加载下载类
+        其中的设置SCHEDULER,DOWNLOADER 默认值可以从default_settings.py获取
+        SCHEDULER = 'scrapy.core.scheduler.Scheduler'
+        DOWNLOADER = 'scrapy.core.downloader.Downloader'
+
+start:  启动爬虫引擎，方法上面带了个装饰器    @defer.inlineCallbacks ，我也不知道这是干嘛的。去这个文章看了下http://blog.csdn.net/xinghun_4/article/details/46834649
+    @defer.inlineCallbacks
+    def start(self):
+        """Start the execution engine"""
+        assert not self.running, "Engine already running" # 如果self.runing = true , 则异常。
+        self.start_time = time()
+        yield self.signals.send_catch_log_deferred(signal=signals.engine_started)
+        self.running = True
+        self._closewait = defer.Deferred()
+        yield self._closewait
+    先去断言引擎的运行状态，记录下开始时间，发送一个引擎启动的信号，设置运行状态为运行，设置_closewait为延迟对象，返回_closewait
+
+stop : 优雅地停止执行引擎
+  def stop(self):
+        """Stop the execution engine gracefully"""
+        assert self.running, "Engine not running"
+        self.running = False
+        dfd = self._close_all_spiders()
+        return dfd.addBoth(lambda _: self._finish_stopping_engine())
+        标记状态running为false,关闭所有的爬虫，调用_finish_stopping_engine
+close:  优雅的关闭执行引擎
+ def close(self):
+        """Close the execution engine gracefully.
+
+        If it has already been started, stop it. In all cases, close all spiders
+        and the downloader.
+        """
+        if self.running:
+            # Will also close spiders and downloader
+            return self.stop()
+        elif self.open_spiders:
+            # Will also close downloader
+            return self._close_all_spiders()
+        else:
+            return defer.succeed(self.downloader.close())
+        调用stop方法，完成引擎的关闭工作，其他情况下，关闭爬虫和下载器
+pause:暂停执行引擎
+    def pause(self):
+        """Pause the execution engine"""
+        self.paused = True
+unpause:解除引擎的暂停
+    def unpause(self):
+        """Resume the execution engine"""
+        self.paused = False
+_next_request:下次请求
+
+    def _next_request(self, spider):
+        slot = self.slot
+        if not slot:
+            return
+
+        if self.paused:
+            return
+
+        while not self._needs_backout(spider):
+            if not self._next_request_from_scheduler(spider):
+                break
+
+        if slot.start_requests and not self._needs_backout(spider):
+            try:
+                request = next(slot.start_requests)
+            except StopIteration:
+                slot.start_requests = None
+            except Exception:
+                slot.start_requests = None
+                logger.error('Error while obtaining start requests',
+                             exc_info=True, extra={'spider': spider})
+            else:
+                self.crawl(request, spider)
+
+        if self.spider_is_idle(spider) and slot.close_if_idle:
+            self._spider_idle(spider)
+    状态判断，这个while暂时不明白啥意思，放一放，接下来的if语句，请求不为空，并且爬虫没有处理完毕。调用next方法。否则去调用crawl方法。
+    如果爬虫是空闲的，并且爬虫空闲则关闭是true的话，调用_spider_idle方法。
+
+_needs_backout: 返回一个布尔值
+    def _needs_backout(self, spider):
+        slot = self.slot
+        return not self.running \
+            or slot.closing \
+            or self.downloader.needs_backout() \
+            or self.scraper.slot.needs_backout()
+        如果引擎关闭则返回true,或者slot关闭，或者下载器那里返回了true,或者爬虫那里返回true,
+        前面2个还好理解吧， 后面的那2个需要具体到downloader,scrper类里面去看，暂时放下不去看，初步推测下应该是没有下载任务了，没有爬虫任务了返回true了吧。
+        我们我们对这个方法的整理理解为没有接下来的工作了就返回true
+_next_request_from_scheduler: 从调度器获取下一个请求
+    def _next_request_from_scheduler(self, spider):
+        slot = self.slot
+        request = slot.scheduler.next_request()
+        if not request:
+            return
+        d = self._download(request, spider)
+        d.addBoth(self._handle_downloader_output, request, spider)
+        d.addErrback(lambda f: logger.info('Error while handling downloader output',
+                                           exc_info=failure_to_exc_info(f),
+                                           extra={'spider': spider}))
+        d.addBoth(lambda _: slot.remove_request(request))
+        d.addErrback(lambda f: logger.info('Error while removing request from slot',
+                                           exc_info=failure_to_exc_info(f),
+                                           extra={'spider': spider}))
+        d.addBoth(lambda _: slot.nextcall.schedule())
+        d.addErrback(lambda f: logger.info('Error while scheduling new request',
+                                           exc_info=failure_to_exc_info(f),
+                                           extra={'spider': spider}))
+        return d
+        从调度器获取下一个请求，判断request,下载请求
+
+-_handle_downloader_output : 处理下载的输出
+    def _handle_downloader_output(self, response, request, spider):
+        assert isinstance(response, (Request, Response, Failure)), response
+        # downloader middleware can return requests (for example, redirects)
+        if isinstance(response, Request):
+            self.crawl(response, spider)
+            return
+        # response is a Response or Failure
+        d = self.scraper.enqueue_scrape(response, request, spider)
+        d.addErrback(lambda f: logger.error('Error while enqueuing downloader output',
+                                            exc_info=failure_to_exc_info(f),
+                                            extra={'spider': spider}))
+        return d
+        断言response为request,response,failure ,如果是request则调用crawl方法，如果是响应enqueue_scrape处理。
+spider_is_idle: 判定爬虫是否是空闲的
+    def spider_is_idle(self, spider):
+        if not self.scraper.slot.is_idle():
+            # scraper is not idle
+            return False
+
+        if self.downloader.active:
+            # downloader has pending requests
+            return False
+
+        if self.slot.start_requests is not None:
+            # not all start requests are handled
+            return False
+
+        if self.slot.scheduler.has_pending_requests():
+            # scheduler has pending requests
+            return False
+
+        return True
+
+        判定slot空闲，判定下载空闲，判定请求为空，判定调度器没有要处理的请求
+open_spiders: 打开爬虫
+    @property
+    def open_spiders(self):
+        return [self.spider] if self.spider else []
+        这个很简单了，就是个三目运算
+
+has_capacity: 判断是否有能力处理更多的爬虫引擎
+    def has_capacity(self):
+        """Does the engine have capacity to handle more spiders"""
+        return not bool(self.slot)
+        具体的细节需要到slot里面去看。这里先放放
+
+crawl : 爬取
+    def crawl(self, request, spider):
+        assert spider in self.open_spiders, \
+            "Spider %r not opened when crawling: %s" % (spider.name, request)
+        self.schedule(request, spider)
+        self.slot.nextcall.schedule()      
+        先断言爬虫是打开的，执行调度，执行回调的调度
+
+schedule : 调度
+    def schedule(self, request, spider):
+        self.signals.send_catch_log(signal=signals.request_scheduled,
+                request=request, spider=spider)
+        if not self.slot.scheduler.enqueue_request(request):
+            self.signals.send_catch_log(signal=signals.request_dropped,
+                                        request=request, spider=spider)
+    调度，出发请求调度事件，如果enqueue_request ， 则触发请求丢弃事件。
+
+download : 下载
+    def download(self, request, spider):
+        d = self._download(request, spider)
+        d.addBoth(self._downloaded, self.slot, request, spider)
+        return d
+    调用内部方法_download,
+_download : 内部方法
+        def _download(self, request, spider):
+        slot = self.slot
+        slot.add_request(request)
+        def _on_success(response):
+            assert isinstance(response, (Response, Request))
+            if isinstance(response, Response):
+                response.request = request # tie request to response received
+                logkws = self.logformatter.crawled(request, response, spider)
+                logger.log(*logformatter_adapter(logkws), extra={'spider': spider})
+                self.signals.send_catch_log(signal=signals.response_received, \
+                    response=response, request=request, spider=spider)
+            return response
+
+        def _on_complete(_):
+            slot.nextcall.schedule()
+            return _
+
+        dwld = self.downloader.fetch(request, spider)
+        dwld.addCallbacks(_on_success)
+        dwld.addBoth(_on_complete)
+        return dwld
+        添加请求， 定义一个成功的方法，一个完成的方法，从下载器里面提取对象（暂时不知道是啥，应该是个defer对象吧）getaway添加成功回调，添加完成。
+        addCallbacks,addBoth 这2个方法用的挺多的， 我们还是先看看这2个方法是干嘛的。
+        百度了下，addcallbacks 接受一个成功的回调方法， 一个失败的回调方法， addBoth函数向callback与errback链中添加了相同的回调函数
+open_spider：打开爬虫
+    @defer.inlineCallbacks
+    def open_spider(self, spider, start_requests=(), close_if_idle=True):
+        assert self.has_capacity(), "No free spider slot when opening %r" % \
+            spider.name
+        logger.info("Spider opened", extra={'spider': spider})
+        nextcall = CallLaterOnce(self._next_request, spider)
+        scheduler = self.scheduler_cls.from_crawler(self.crawler)
+        start_requests = yield self.scraper.spidermw.process_start_requests(start_requests, spider)
+        slot = Slot(start_requests, close_if_idle, nextcall, scheduler)
+        self.slot = slot
+        self.spider = spider
+        yield scheduler.open(spider)
+        yield self.scraper.open_spider(spider)
+        self.crawler.stats.open_spider(spider)
+        yield self.signals.send_catch_log_deferred(signals.spider_opened, spider=spider)
+        slot.nextcall.schedule()
+        slot.heartbeat.start(5)
+        先断言容量，记录info日志，获取nextcall,格局crawler构造scheduler调度器，构造slot对象，调度器打开爬虫，爬虫打开，出发爬虫打开事件，启动心跳信息。
+_spider_idle: 爬虫空闲
+    def _spider_idle(self, spider):
+        """Called when a spider gets idle. This function is called when there
+        are no remaining pages to download or schedule. It can be called
+        multiple times. If some extension raises a DontCloseSpider exception
+        (in the spider_idle signal handler) the spider is not closed until the
+        next loop and this function is guaranteed to be called (at least) once
+        again for this spider.
+        """
+        res = self.signals.send_catch_log(signal=signals.spider_idle, \
+            spider=spider, dont_log=DontCloseSpider)
+        if any(isinstance(x, Failure) and isinstance(x.value, DontCloseSpider) \
+                for _, x in res):
+            return
+
+        if self.spider_is_idle(spider):
+            self.close_spider(spider, reason='finished')
+        判定空闲， 如果空闲的话，关闭爬虫
+close_spider : 关闭爬虫
+ def close_spider(self, spider, reason='cancelled'):
+        """Close (cancel) spider and clear all its outstanding requests"""
+
+        slot = self.slot
+        if slot.closing:
+            return slot.closing
+        logger.info("Closing spider (%(reason)s)",
+                    {'reason': reason},
+                    extra={'spider': spider})
+
+        dfd = slot.close()
+
+        def log_failure(msg):
+            def errback(failure):
+                logger.error(
+                    msg,
+                    exc_info=failure_to_exc_info(failure),
+                    extra={'spider': spider}
+                )
+            return errback
+
+        dfd.addBoth(lambda _: self.downloader.close())
+        dfd.addErrback(log_failure('Downloader close failure'))
+        
+        dfd.addBoth(lambda _: self.downloader.close())
+        dfd.addErrback(log_failure('Downloader close failure'))
+
+        dfd.addBoth(lambda _: self.scraper.close_spider(spider))
+        dfd.addErrback(log_failure('Scraper close failure'))
+
+        dfd.addBoth(lambda _: slot.scheduler.close(reason))
+        dfd.addErrback(log_failure('Scheduler close failure'))
+
+        dfd.addBoth(lambda _: self.signals.send_catch_log_deferred(
+            signal=signals.spider_closed, spider=spider, reason=reason))
+        dfd.addErrback(log_failure('Error while sending spider_close signal'))
+
+        dfd.addBoth(lambda _: self.crawler.stats.close_spider(spider, reason=reason))
+        dfd.addErrback(log_failure('Stats close failure'))
+
+        dfd.addBoth(lambda _: logger.info("Spider closed (%(reason)s)",
+                                          {'reason': reason},
+                                          extra={'spider': spider}))
+
+        dfd.addBoth(lambda _: setattr(self, 'slot', None))
+        dfd.addErrback(log_failure('Error while unassigning slot'))
+
+        dfd.addBoth(lambda _: setattr(self, 'spider', None))
+        dfd.addErrback(log_failure('Error while unassigning spider'))
+
+        dfd.addBoth(lambda _: self._spider_closed_callback(spider))
+
+        return dfd
+        绑定各种错误回调。
+
+_close_all_spiders :关闭所有的爬虫
+    def _close_all_spiders(self):
+        dfds = [self.close_spider(s, reason='shutdown') for s in self.open_spiders]
+        dlist = defer.DeferredList(dfds)
+        return dlist
+    遍历爬虫，执行关闭操作
+_finish_stopping_engine : 结束引擎
+    @defer.inlineCallbacks
+    def _finish_stopping_engine(self):
+        yield self.signals.send_catch_log_deferred(signal=signals.engine_stopped)
+        self._closewait.callback(None)
+        触发引擎关闭操作。 
+
+看完还是迷迷糊糊的啊， 

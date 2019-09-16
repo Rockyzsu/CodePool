@@ -1,0 +1,160 @@
+ contextfactory.py 这个文件，相对文件内容不多。
+
+
+from OpenSSL import SSL
+from twisted.internet.ssl import ClientContextFactory
+
+from scrapy import twisted_version
+这3句代码， 导入ssl,
+导入ClientContextFactory ，
+导入twisted_version
+
+我们看看这个version是啥内容
+twisted_version = (_txv.major, _txv.minor, _txv.micro)
+就是个元组，我们直接在命令端测试下输出。 
+>>> import scrapy
+>>> scrapy.twisted_version
+(17, 5, 0)
+这个显示的是主版本， 次版本，最后一个不清楚， 发行版本？
+
+接下来就是要给大的if else ， 根据上面twisted_version 的版本。 
+我们只看看
+if twisted_version >= (14, 0, 0): 这个分支先。
+
+from zope.interface.declarations import implementer
+去官方网站的api查阅下， 这个函数是个装饰器
+参数是一个或多个接口或者接口规范。
+
+
+from twisted.internet.ssl import (optionsForClientTLS,
+                                    CertificateOptions,
+                                    platformTrust)
+from twisted.web.client import BrowserLikePolicyForHTTPS
+from twisted.web.iweb import IPolicyForHTTPS
+
+这里导入了twisted的几个包。和zope下的一个implementer的包。 
+
+ from scrapy.core.downloader.tls import ScrapyClientTLSOptions, DEFAULT_CIPHERS
+ 从tls.py里面导入了ScrapyClientTLSOptions, DEFAULT_CIPHERS
+
+@implementer(IPolicyForHTTPS)
+class ScrapyClientContextFactory(BrowserLikePolicyForHTTPS):
+    """
+    Non-peer-certificate verifying HTTPS context factory
+
+    Default OpenSSL method is TLS_METHOD (also called SSLv23_METHOD)
+    which allows TLS protocol negotiation
+
+    'A TLS/SSL connection established with [this method] may
+        understand the SSLv3, TLSv1, TLSv1.1 and TLSv1.2 protocols.'
+    """
+
+    def __init__(self, method=SSL.SSLv23_METHOD, *args, **kwargs):
+        super(ScrapyClientContextFactory, self).__init__(*args, **kwargs)
+        self._ssl_method = method
+
+    def getCertificateOptions(self):
+        # setting verify=True will require you to provide CAs
+        # to verify against; in other words: it's not that simple
+
+        # backward-compatible SSL/TLS method:
+        #
+        # * this will respect `method` attribute in often recommended
+        #   `ScrapyClientContextFactory` subclass
+        #   (https://github.com/scrapy/scrapy/issues/1429#issuecomment-131782133)
+        #
+        # * getattr() for `_ssl_method` attribute for context factories
+        #   not calling super(..., self).__init__
+        return CertificateOptions(verify=False,
+                    method=getattr(self, 'method',
+                                    getattr(self, '_ssl_method', None)),
+                    fixBrokenPeers=True,
+                    acceptableCiphers=DEFAULT_CIPHERS)
+
+    # kept for old-style HTTP/1.0 downloader context twisted calls,
+    # e.g. connectSSL()
+    def getContext(self, hostname=None, port=None):
+        return self.getCertificateOptions().getContext()
+
+    def creatorForNetloc(self, hostname, port):
+        return ScrapyClientTLSOptions(hostname.decode("ascii"), self.getContext())
+先使用装饰器装饰类。 接口指定为IPolicyForHTTPS 
+
+def __init__(self, method=SSL.SSLv23_METHOD, *args, **kwargs):
+    super(ScrapyClientContextFactory, self).__init__(*args, **kwargs)
+    self._ssl_method = method
+    初始化先调用super方法完成父类的初始化工作。
+    设置sll方法为传递过来的方法， 默认值为SSL.SSLv23_METHOD
+ def getCertificateOptions(self):
+            # setting verify=True will require you to provide CAs
+            # to verify against; in other words: it's not that simple
+
+            # backward-compatible SSL/TLS method:
+            #
+            # * this will respect `method` attribute in often recommended
+            #   `ScrapyClientContextFactory` subclass
+            #   (https://github.com/scrapy/scrapy/issues/1429#issuecomment-131782133)
+            #
+            # * getattr() for `_ssl_method` attribute for context factories
+            #   not calling super(..., self).__init__
+            return CertificateOptions(verify=False,
+                        method=getattr(self, 'method',
+                                       getattr(self, '_ssl_method', None)),
+                        fixBrokenPeers=True,
+                        acceptableCiphers=DEFAULT_CIPHERS)
+
+        # kept for old-style HTTP/1.0 downloader context twisted calls,
+        # e.g. connectSSL()
+从方法名上可以推断出来是获取认证选项的
+def getContext(self, hostname=None, port=None):
+    return self.getCertificateOptions().getContext()
+获取认证选项，获取context.
+def creatorForNetloc(self, hostname, port):
+        return ScrapyClientTLSOptions(hostname.decode("ascii"), self.getContext())
+调用getContext获取内容。
+
+class BrowserLikeContextFactory(ScrapyClientContextFactory):
+    """
+    Twisted-recommended context factory for web clients.
+
+    Quoting http://twistedmatrix.com/documents/current/api/twisted.web.client.Agent.html:
+    "The default is to use a BrowserLikePolicyForHTTPS,
+    so unless you have special requirements you can leave this as-is."
+
+    creatorForNetloc() is the same as BrowserLikePolicyForHTTPS
+    except this context factory allows setting the TLS/SSL method to use.
+
+    Default OpenSSL method is TLS_METHOD (also called SSLv23_METHOD)
+    which allows TLS protocol negotiation.
+    """
+    def creatorForNetloc(self, hostname, port):
+
+        # trustRoot set to platformTrust() will use the platform's root CAs.
+        #
+        # This means that a website like https://www.cacert.org will be rejected
+        # by default, since CAcert.org CA certificate is seldom shipped.
+        return optionsForClientTLS(hostname.decode("ascii"),
+                                    trustRoot=platformTrust(),
+                                    extraCertificateOptions={
+                                        'method': self._ssl_method,
+                                    })
+这个方法基本和上面的是一样的。 
+
+else:
+
+    class ScrapyClientContextFactory(ClientContextFactory):
+        "A SSL context factory which is more permissive against SSL bugs."
+        # see https://github.com/scrapy/scrapy/issues/82
+        # and https://github.com/scrapy/scrapy/issues/26
+        # and https://github.com/scrapy/scrapy/issues/981
+
+        def __init__(self, method=SSL.SSLv23_METHOD):
+            self.method = method
+
+        def getContext(self, hostname=None, port=None):
+            ctx = ClientContextFactory.getContext(self)
+            # Enable all workarounds to SSL bugs as documented by
+            # http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
+            ctx.set_options(SSL.OP_ALL)
+            return ctx
+初始化并定义getContext方法

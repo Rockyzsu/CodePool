@@ -1,0 +1,82 @@
+下载中间件
+
+import six
+导入six兼容包
+from twisted.internet import defer
+导入defer
+from scrapy.http import Request, Response
+导入请求和响应
+from scrapy.middleware import MiddlewareManager
+from scrapy.utils.defer import mustbe_deferred
+导入中间件管理 和mustbe_defferred
+from scrapy.utils.conf import build_component_list
+导入构建中间件列表函数
+
+ @classmethod
+    def _get_mwlist_from_settings(cls, settings):
+        return build_component_list(
+            settings.getwithbase('DOWNLOADER_MIDDLEWARES'))
+从设置里面获取下载中间件， 然后构建下载中间件列表
+
+def _add_middleware(self, mw):
+    if hasattr(mw, 'process_request'):
+        self.methods['process_request'].append(mw.process_request)
+    if hasattr(mw, 'process_response'):
+        self.methods['process_response'].insert(0, mw.process_response)
+    if hasattr(mw, 'process_exception'):
+        self.methods['process_exception'].insert(0, mw.process_exception)
+添加下载中间件，获取定义的几个方法， 并添加到对应的链上去。 
+
+这里可以看出来， 我们自己如果写下载中间件的需要提供如下几个方法。 
+process_request， process_response，process_exception 这3个方法的。 
+
+def download(self, download_func, request, spider):
+这个download里面定义了3个方法吧， 也就是上面提到的3个方法。 
+我们一个一个看看具体写的都是啥。
+@defer.inlineCallbacks
+def process_request(request):
+    for method in self.methods['process_request']:
+        response = yield method(request=request, spider=spider)
+        assert response is None or isinstance(response, (Response, Request)), \
+                'Middleware %s.process_request must return None, Response or Request, got %s' % \
+                (six.get_method_self(method).__class__.__name__, response.__class__.__name__)
+        if response:
+            defer.returnValue(response)
+    defer.returnValue((yield download_func(request=request,spider=spider)))
+先从方法中获取处理请求方法链， 遍历。  
+获取对应处理方法的响应， 断言响应为none,response,request.如果响应不为空的话， 就直接defer.returnValue,
+遍历完毕方法链之后，使用download_func获取结果。
+
+@defer.inlineCallbacks
+    def process_response(response):
+        assert response is not None, 'Received None in process_response'
+        if isinstance(response, Request):
+            defer.returnValue(response)
+
+        for method in self.methods['process_response']:
+            response = yield method(request=request, response=response,
+                                    spider=spider)
+            assert isinstance(response, (Response, Request)), \
+                'Middleware %s.process_response must return Response or Request, got %s' % \
+                (six.get_method_self(method).__class__.__name__, type(response))
+            if isinstance(response, Request):
+                defer.returnValue(response)
+        defer.returnValue(response)
+判定是否是响应， 如果响应是请求， 调用defer.returnValue处理。 
+对于响应， 遍历响应链， 断言响应结果。 如果是request的话， 调用defer.returnValue处理。
+最后使用defer.returnValue处理响应。 
+@defer.inlineCallbacks
+def process_exception(_failure):
+    exception = _failure.value
+    for method in self.methods['process_exception']:
+        response = yield method(request=request, exception=exception,
+                                spider=spider)
+        assert response is None or isinstance(response, (Response, Request)), \
+            'Middleware %s.process_exception must return None, Response or Request, got %s' % \
+            (six.get_method_self(method).__class__.__name__, type(response))
+        if response:
+            defer.returnValue(response)
+    defer.returnValue(_failure)
+遍历异常处理链，  调用对应的方法处理异常。 
+断言响应的结果。 
+返回失败值。

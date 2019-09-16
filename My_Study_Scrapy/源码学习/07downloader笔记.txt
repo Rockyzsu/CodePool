@@ -1,0 +1,273 @@
+这里我们看看scrapy.core.downloader 这个吧。 
+
+from __future__ import absolute_import
+百度了一个博客 ： http://taoyh163.blog.163.com/blog/static/1958035620074111276292/
+在python2.5，你可以打开 import的行为直接去绝对导入使用一个 from __future__ import absolute_import 。这个绝对导入行为将成为一个默认的细节在将来的python中。一旦绝对导入被默认，import string 将总是寻找基本库。
+建议用户尽可能多的使用绝对导入，因此在你的代码中使用from pkg improt string是适宜的。
+
+import random
+import warnings 
+这就是导入随机数和警告
+
+from time import time
+from datetime import datetime
+from collections import deque
+
+这些也是导入基本的包， 没啥问题。 
+
+import six
+from twisted.internet import reactor, defer, task
+这里导入了兼容包six， 以及twisted 下的reactor反应堆， defer以及task。
+
+from scrapy.utils.defer import mustbe_deferred
+导入强制deferred 
+
+from scrapy.utils.httpobj import urlparse_cached
+这个我们定位过去看看
+
+_urlparse_cache = weakref.WeakKeyDictionary()
+def urlparse_cached(request_or_response):
+    """Return urlparse.urlparse caching the result, where the argument can be a
+    Request or Response object
+    """
+    if request_or_response not in _urlparse_cache:
+        _urlparse_cache[request_or_response] = urlparse(request_or_response.url)
+    return _urlparse_cache[request_or_response]
+方法是返回一个结果urlparse,urlparse的缓存结果。 参数可以使请求也可以是响应。 
+如果对象不再字典里面， 就缓存下， 然后返回。
+
+
+from scrapy.resolver import dnscache
+dnscache = LocalCache(10000) ， 说明dnscache 是个dict 的。 
+from scrapy import signals 导入信号
+
+from .middleware import DownloaderMiddlewareManager
+from .handlers import DownloadHandlers
+导入了下载中间件和下载处理
+
+这个文件2个类， 我们一个一个看。 
+  def __init__(self, concurrency, delay, randomize_delay):
+        self.concurrency = concurrency
+        self.delay = delay
+        self.randomize_delay = randomize_delay
+
+        self.active = set()
+        self.queue = deque()
+        self.transferring = set()
+        self.lastseen = 0
+        self.latercall = None
+初始化工作 。 并发，延迟， 是否随机延迟， 活动集合， 队列， 正在传输集合， 最后调用， 
+
+def free_transfer_slots(self):
+    return self.concurrency - len(self.transferring)
+    并发度 - 当前传输的个数=  得到空闲的传输槽
+
+def download_delay(self):
+    if self.randomize_delay:
+        return random.uniform(0.5 * self.delay, 1.5 * self.delay)
+    return self.delay
+下载延迟，如果随机延迟开启的话 在0.5 1.5倍delay之间返回一个值， 否则直接使用delay值。 
+
+def close(self):
+    if self.latercall and self.latercall.active():
+        self.latercall.cancel()
+关闭下载器，  如果最后一个调用存在，代用cancel取消。
+
+def __repr__(self):
+    cls_name = self.__class__.__name__
+    return "%s(concurrency=%r, delay=%0.2f, randomize_delay=%r)" % (
+        cls_name, self.concurrency, self.delay, self.randomize_delay)
+
+def __str__(self):
+    return (
+        "<downloader.Slot concurrency=%r delay=%0.2f randomize_delay=%r "
+        "len(active)=%d len(queue)=%d len(transferring)=%d lastseen=%s>" % (
+            self.concurrency, self.delay, self.randomize_delay,
+            len(self.active), len(self.queue), len(self.transferring),
+            datetime.fromtimestamp(self.lastseen).isoformat()
+        )
+    )
+这2个就是基本的方法了。 没啥问题的。 
+
+def _get_concurrency_delay(concurrency, spider, settings):
+    delay = settings.getfloat('DOWNLOAD_DELAY')
+    if hasattr(spider, 'DOWNLOAD_DELAY'):
+        warnings.warn("%s.DOWNLOAD_DELAY attribute is deprecated, use %s.download_delay instead" %
+                      (type(spider).__name__, type(spider).__name__))
+        delay = spider.DOWNLOAD_DELAY
+    if hasattr(spider, 'download_delay'):
+        delay = spider.download_delay
+
+    if hasattr(spider, 'max_concurrent_requests'):
+        concurrency = spider.max_concurrent_requests
+
+    return concurrency, delay
+获取并发的延迟， 从设置里面获取download_delay 也就是获取下载延迟设置。 
+
+如果爬虫有对应的下载延迟设置， 提示警告。 还是采用其设置值。
+
+如果爬虫有对应的download_delay设置，设置值。
+如果有最大并发请求个数，最总返回一个最大并发数和延迟量。 
+
+
+接下来看看这个下载downloader类
+def __init__(self, crawler):
+    self.settings = crawler.settings
+    self.signals = crawler.signals
+    self.slots = {}
+    self.active = set()
+    self.handlers = DownloadHandlers(crawler)
+    self.total_concurrency = self.settings.getint('CONCURRENT_REQUESTS')
+    self.domain_concurrency = self.settings.getint('CONCURRENT_REQUESTS_PER_DOMAIN')
+    self.ip_concurrency = self.settings.getint('CONCURRENT_REQUESTS_PER_IP')
+    self.randomize_delay = self.settings.getbool('RANDOMIZE_DOWNLOAD_DELAY')
+    self.middleware = DownloaderMiddlewareManager.from_crawler(crawler)
+    self._slot_gc_loop = task.LoopingCall(self._slot_gc)
+    self._slot_gc_loop.start(60)
+这个是downloader的初始化方法， 根据一个crawler去初始化， 
+获取crawler的设置和信号， 
+构造一个slots集合， 和一个活动集合。 
+根据crawler构造一个下载处理对象。 
+从设置获取并行请求，每个与的最大请求书， 每个ip的并发请求限制， 随机下载延迟，  中间件通过中间件管理构造。 
+
+task.LoopingCall 百度下， 是一个定时的反复，    
+ self._slot_gc_loop = task.LoopingCall(self._slot_gc)
+    self._slot_gc_loop.start(60) 
+    这2句话的意思就是每60s就去执行下self._slot_gc方法。
+
+def fetch(self, request, spider):
+    def _deactivate(response):
+        self.active.remove(request)
+        return response
+
+    self.active.add(request)
+    dfd = self.middleware.download(self._enqueue_request, request, spider)
+    return dfd.addBoth(_deactivate)
+活动集合添加请求， 下载中间件完成下载获取deffered对象， 添加一个回调方法移除请求。 
+
+def needs_backout(self):
+    return len(self.active) >= self.total_concurrency
+判断当前活动的个数是不是超出了总的并发量
+
+
+def _get_slot_key(self, request, spider):
+    if 'download_slot' in request.meta:
+        return request.meta['download_slot']
+
+    key = urlparse_cached(request).hostname or ''
+    if self.ip_concurrency:
+        key = dnscache.get(key, key)
+
+    return key 
+这个先看看meta有没有download_slot ，如果有的话就直接返回
+没有话，就从urlparse缓冲里面获取到主机名，如果为空，就设置为‘’ ，如果有ip并发限制
+从dns缓冲中获取
+def _get_slot(self, request, spider):
+    key = self._get_slot_key(request, spider)
+    if key not in self.slots:
+        conc = self.ip_concurrency if self.ip_concurrency else self.domain_concurrency
+        conc, delay = _get_concurrency_delay(conc, spider, self.settings)
+        self.slots[key] = Slot(conc, delay, self.randomize_delay)
+
+    return key, self.slots[key]
+获取key , 如果key不在slots里面， 如果ip限制了。 就使用ip限制， 否则使用域限制。 
+获取并发和延迟从设置里面， 根据key创建一个slot
+返回key 和slot
+
+def _enqueue_request(self, request, spider):
+    key, slot = self._get_slot(request, spider)
+    request.meta['download_slot'] = key
+
+    def _deactivate(response):
+        slot.active.remove(request)
+        return response
+
+    slot.active.add(request)
+    deferred = defer.Deferred().addBoth(_deactivate)
+    slot.queue.append((request, deferred))
+    self._process_queue(spider, slot)
+    return deferred
+根据请求和爬虫获取key 和slot , 设置请求的meta， slot的active集合添加请求， 添加回调方法去移除活动集合。
+slot的队列添加一个。 调用process_queue 去处理队列。 返回deferred对象。
+
+def _process_queue(self, spider, slot):
+    if slot.latercall and slot.latercall.active():
+        return
+
+    # Delay queue processing if a download_delay is configured
+    now = time()
+    delay = slot.download_delay()
+    if delay:
+        penalty = delay - now + slot.lastseen
+        if penalty > 0:
+            slot.latercall = reactor.callLater(penalty, self._process_queue, spider, slot)
+            return
+
+    # Process enqueued requests if there are free slots to transfer for this slot
+    while slot.queue and slot.free_transfer_slots() > 0:
+        slot.lastseen = now
+        request, deferred = slot.queue.popleft()
+        dfd = self._download(slot, request, spider)
+        dfd.chainDeferred(deferred)
+        # prevent burst if inter-request delays were configured
+        if delay:
+            self._process_queue(spider, slot)
+            break
+处理队列的方法， 如果最后一个调用在，就返回， 
+获取当前时间， 从slot获取下载延迟， 
+如果有延迟， lastseen 上次slot使用时间， - now 得到 上次使用距离当前时间的差值， 加delay 
+如果大于0 说明 等待时间小于延迟时间了。 可以进行下一步操作了。 
+设置下lastcall  设置下几秒之后执行方法。 也就是设置了。等待几秒去执行self._process_queue 方法。
+
+如果还有空闲的传输clost的话， 
+设置lastseen为now,
+从队列取出一个，调用_download返回一个deferred对象， 添加到deferred链上，如果有延迟，执行_process_queue方法。
+
+def _download(self, slot, request, spider):
+    # The order is very important for the following deferreds. Do not change!
+
+    # 1. Create the download deferred
+    dfd = mustbe_deferred(self.handlers.download_request, request, spider)
+
+    # 2. Notify response_downloaded listeners about the recent download
+    # before querying queue for next request
+    def _downloaded(response):
+        self.signals.send_catch_log(signal=signals.response_downloaded,
+                                    response=response,
+                                    request=request,
+                                    spider=spider)
+        return response
+    dfd.addCallback(_downloaded)
+
+    # 3. After response arrives,  remove the request from transferring
+    # state to free up the transferring slot so it can be used by the
+    # following requests (perhaps those which came from the downloader
+    # middleware itself)
+    slot.transferring.add(request)
+
+    def finish_transferring(_):
+        slot.transferring.remove(request)
+        self._process_queue(spider, slot)
+        return _
+
+    return dfd.addBoth(finish_transferring)
+这个方法写的注释很是详细。 
+创建一个下载deferred， 
+通知响应下载监听关于最近的下载，在查询队列为下一次请求之前。
+在响应接收到到之后， 移除请求从传输状态到free的传输slot上，让其空间给其他请求使用。
+
+
+def close(self):
+    self._slot_gc_loop.stop()
+    for slot in six.itervalues(self.slots):
+        slot.close()
+关闭方法，  关闭gc_loop 
+关闭所有slot。
+
+def _slot_gc(self, age=60):
+    mintime = time() - age
+    for key, slot in list(self.slots.items()):
+        if not slot.active and slot.lastseen + slot.delay < mintime:
+            self.slots.pop(key).close()
+获取近一分钟内，遍历slots。
+如果slot的状态不是active,上次访问+延迟< mintime的话， 就从slots里面pop出来。 并关闭。
