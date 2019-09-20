@@ -1,0 +1,10 @@
+.DS_Store
+*~
+*.gz
+*.pyc
+__pycache__/
+*.tar
+*.tgz
+*.png
+*.jpg
+*.pkl
