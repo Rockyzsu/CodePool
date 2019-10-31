@@ -1,8 +1,7 @@
 import threading
 import requests
-from .proxy import Proxy
+from proxy import Proxy
 import json
-
 
 class SequenceProxyProvider:
     def __init__(self, num_of_proxies=200):

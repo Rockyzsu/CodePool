@@ -31,6 +31,6 @@ for lng in np.arange(121.484258, 121.500859, offset):
             bikes[id]=(x,y)
         print("Bikes:", len(bikes))
 
-with open("bike.csv", 'wt', encoding='utf-8') as f:
-    for id, pos in bikes.items():
-        f.write("%s,%s,%s\n" % (id, pos[0], pos[1]))
+# with open("bike.csv", 'wt', encoding='utf-8') as f:
+#     for id, pos in bikes.items():
+#         f.write("%s,%s,%s\n" % (id, pos[0], pos[1]))

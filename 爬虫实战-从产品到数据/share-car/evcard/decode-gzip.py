@@ -18,7 +18,7 @@ params = (
     ('appkey', 'evcardapp'),
 )
 
-data = '{"updatedTime":"20180612163919372","token":""}'
+data = '{"updatedTime":"20190612163919372","token":""}'
 
 response = requests.post('https://apigw-mas.evcard.vip/evcard-mas/v1/getShopBaseInfoGzipNew', headers=headers, params=params, data=data)
 

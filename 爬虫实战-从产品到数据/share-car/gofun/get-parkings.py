@@ -74,11 +74,11 @@ offset = 0.08
 default_lat_diff = 0.5
 default_lon_diff = 0.5
 
-executor = ThreadPoolExecutor(max_workers=50)
+executor = ThreadPoolExecutor(max_workers=2)
 for city in get_city_info():
     executor.submit(run, city)
 
 executor.shutdown()
 
-with open("parkings.json", "wt") as f:
+with open("parkings_.json", "wt") as f:
     f.write(json.dumps(parking_list, ensure_ascii=False))

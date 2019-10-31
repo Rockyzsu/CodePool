@@ -34,8 +34,8 @@ def get_parking_info(job):
 
 car_list = {}
 
-executor = ThreadPoolExecutor(max_workers=50)
-with open("parkings.json", "rt") as f:
+executor = ThreadPoolExecutor(max_workers=2)
+with open("parkings_.json", "rt") as f:
     parkings = json.loads(f.read())    
     for id,parking in parkings.items():
         city_code = parking['cityCode']
@@ -43,5 +43,5 @@ with open("parkings.json", "rt") as f:
 
 executor.shutdown()
 
-with open("car.json", "wt") as f:
+with open("car_.json", "wt") as f:
     f.write(json.dumps(car_list, ensure_ascii=False))

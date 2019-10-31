@@ -61,6 +61,7 @@ with open(sys.argv[1], "rb") as f:
 
     #save files
     for d in fileList:
+
         d.name = '/' + name + str(d.name, encoding = "utf-8")
         path = root + os.path.dirname(d.name)
 
