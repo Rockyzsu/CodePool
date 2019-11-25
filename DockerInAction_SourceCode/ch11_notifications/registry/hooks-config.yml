@@ -1,0 +1,29 @@
+version: 0.1
+log:
+    level: debug
+    formatter: text
+    fields:
+        service: registry
+        environment: staging
+storage:
+    filesystem:
+        rootdirectory: /var/lib/registry
+    maintenance:
+        uploadpurging:
+            enabled: true
+            age: 168h
+            interval: 24h
+            dryrun: false
+http:
+    addr: 0.0.0.0:5000
+    secret: asecretforlocaldevelopment
+    debug:
+        addr: localhost:5001
+notifications:
+    endpoints:
+        - name: webhookmonitor
+          disabled: false
+          url: http://webhookmonitor:8000/
+          timeout: 500
+          threshold: 5
+          backoff: 1000

@@ -1,0 +1,37 @@
+# A Docker Distribution based registry. The service listens on port 5000.
+# This registry has been specialized to push notifications to
+# "webhookmonitor:3000" which in this environment is filled by the "pump"
+# service.
+registry:
+  build: ./registry
+  ports:
+    - "5555:5000"
+  links:
+    - pump:webhookmonitor
+
+# This is a small NodeJS application that listens on port 3000 and pumps
+# received JSON messages to an Elasticsearch node. The application itself
+# keeps no state.
+pump:
+  build: ./pump
+  expose:
+    - "8000"
+  links:
+    - elasticsearch:esnode
+  
+# The elasticsearch image declares a volume at /usr/share/elasticsearch/data
+# for that reason we need not declare a volume here unless we want to 
+# bind-mount that volume to a specific location on the disk.
+# Doing so may be useful for integration with volume management tools
+elasticsearch:
+  image: elasticsearch:1.6
+  ports:
+    - "9200:9200"
+  command: "-Des.http.cors.enabled=true"
+
+# Calaca is stateless and client side only.
+# NPM is used for a simple web server.
+calaca:
+  build: ./calaca
+  ports:
+    - "3000:3000"

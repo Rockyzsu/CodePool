@@ -1,0 +1,62 @@
+data:
+  image: gliderlabs/alpine
+  command: echo Data Container
+  user: 999:999
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Volume Container"
+
+dbstate:
+  extends:
+    file: docker-compose.yml
+    service: data
+  volumes:
+    - /var/lib/postgresql/data/pgdata
+
+# the postgres image uses gosu to change to the postgres user
+db:
+  image: postgres
+  volumes_from:
+    - dbstate
+  environment:
+    - PGDATA=/var/lib/postgresql/data/pgdata
+    - POSTGRES_PASSWORD=development
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Database"
+
+# the nginx image uses user de-escalation to change to the nginx user
+proxy:
+  image: nginx
+  restart: always
+  volumes:
+    - ./proxy/app.conf:/etc/nginx/conf.d/app.conf
+  ports:
+    - "8080:8080"
+  links:
+    - coffee
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Load Balancer"
+
+coffee:
+  build: ./coffee
+  user: 777:777
+  restart: always
+  expose:
+    - 3000
+  ports:
+    - "0:3000"
+  links:
+    - db:db
+  environment:
+    - COFFEEFINDER_DB_URI=postgresql://postgres:development@db:5432/postgres
+    - COFFEEFINDER_CONFIG=development
+    - SERVICE_NAME=coffee
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Application Logic"

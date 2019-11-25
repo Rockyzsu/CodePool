@@ -1,0 +1,51 @@
+data:
+  image: gliderlabs/alpine
+  command: echo Data Container
+  user: 999:999
+  log_driver: none
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Volume Container"
+
+dbstate:
+  extends:
+    file: docker-compose.yml
+    service: data
+  volumes:
+    - /var/lib/postgresql/data/pgdata
+
+db:
+  image: postgres
+  volumes_from:
+    - dbstate
+  environment:
+    - PGDATA=/var/lib/postgresql/data/pgdata
+    - POSTGRES_PASSWORD=development
+  log_driver: none
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Database"
+
+coffee:
+  build: ./coffee
+  user: 777:777
+  restart: always
+  expose:
+    - 3000
+  links:
+    - db:db
+  log_driver: none
+  environment:
+    - COFFEEFINDER_DB_URI=postgresql://postgres:development@db:5432/postgres
+    - COFFEEFINDER_CONFIG=development
+  labels:
+    com.dockerinaction.chapter: "11"
+    com.dockerinaction.example: "Coffee API"
+    com.dockerinaction.role: "Application Logic"
+
+tests:
+  build: ./int-test
+  links:
+    - coffee:coffee
