@@ -1,0 +1,10 @@
+# python:
+*.py[cod]
+*.egg
+*.log
+*.egg-info/
+dist/
+build/
+__pycache__/
+fzutils.egg-info/
+*.DS_Store
