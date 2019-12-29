@@ -7,11 +7,13 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
+    print('get-----')
     """Video streaming home page."""
     return render_template('index.html')
 
 
 def gen_frame():
+    print('gen')
     """Video streaming generator function."""
     while True:
         frame = camera_stream() # bytes的拼接
@@ -21,10 +23,11 @@ def gen_frame():
 
 @app.route('/video_feed')
 def video_feed():
+    print('get frame')
     """Video streaming route. Put this in the src attribute of an img tag."""
     return Response(gen_frame(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',debug=True,port=5000)
+    app.run(host='0.0.0.0',threaded=True,port=80)

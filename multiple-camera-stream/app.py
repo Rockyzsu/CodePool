@@ -15,7 +15,9 @@ def find_camera(id):
 def gen_frames(camera_id):
 
     cam = find_camera(camera_id)
-    cap=  cv2.VideoCapture('{}.mp4'.format(cam))
+    # cap=  cv2.VideoCapture('{}.mp4'.format(cam))
+    cap=  cv2.VideoCapture(cam)
+
 
     while True:
         # for cap in caps:
