@@ -1,16 +1,17 @@
 import time
 import cv2
 
-
-
 #  for cctv camera'rtsp://username:password@ip_address:554/user=username_password='password'_channel=channel_number_stream=0.sdp'
 #  example of cctv or rtsp: 'rtsp://mamun:123456@101.134.16.117:554/user=mamun_password=123456_channel=1_stream=0.sdp'
-
 
 # video_capture = cv2.VideoCapture('video_20191218_144737.mp4')  # 0 for web camera live stream
 cascPath = 'haarcascade_frontalface_dataset.xml'  # dataset
 faceCascade = cv2.CascadeClassifier(cascPath)
-video_capture = cv2.VideoCapture(0)  # 0 for web camera live stream
+
+src=0
+rtsp = 'rtsp://admin:byb123456@192.168.1.64:554/Streaming/channels/1/'
+
+video_capture = cv2.VideoCapture(src)  # 0 for web camera live stream
 print(video_capture.isOpened())
 
 def camera_stream():
