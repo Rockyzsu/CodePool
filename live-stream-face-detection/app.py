@@ -1,6 +1,6 @@
 
 from flask import Flask, render_template, Response
-from camera import camera_stream
+from camera_openpose import camera_stream
 
 app = Flask(__name__)
 
@@ -30,4 +30,4 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',threaded=True,port=80)
+    app.run(host='0.0.0.0',threaded=True,port=9000)

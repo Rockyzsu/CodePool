@@ -9,9 +9,9 @@ cascPath = 'haarcascade_frontalface_dataset.xml'  # dataset
 faceCascade = cv2.CascadeClassifier(cascPath)
 
 src=0
-rtsp = 'rtsp://admin:byb123456@192.168.1.64:554/Streaming/channels/1/'
+rtsp = 'rtsp://admin:byb123456@192.168.1.65:554/Streaming/channels/1/'
 
-video_capture = cv2.VideoCapture(src)  # 0 for web camera live stream
+video_capture = cv2.VideoCapture(rtsp)  # 0 for web camera live stream
 print(video_capture.isOpened())
 
 def camera_stream():
