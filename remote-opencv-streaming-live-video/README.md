@@ -1,4 +1,4 @@
-# Remote streaming live video with Flask
+# Remote streaming live video with Flask It works on Python3
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rena2damas/remote-opencv-streaming-live-video/blob/master/LICENSE)
 
