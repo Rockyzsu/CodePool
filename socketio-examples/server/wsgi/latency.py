@@ -22,6 +22,7 @@ def ping_from_client(sid):
 
 
 if __name__ == '__main__':
+    print(sio.async_mode)
     if sio.async_mode == 'threading':
         # deploy with Werkzeug
         app.run(threaded=True)

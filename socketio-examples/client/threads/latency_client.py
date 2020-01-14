@@ -29,3 +29,4 @@ def pong_from_server(data):
 if __name__ == '__main__':
     sio.connect('http://localhost:5000')
     sio.wait()
+    print('next')
