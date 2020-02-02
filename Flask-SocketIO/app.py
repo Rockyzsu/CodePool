@@ -28,7 +28,7 @@ def background_thread():
                       namespace='/test')
 
 
-@app.route('/')
+@app.route('/',methods=['GET','POST'])
 def index():
     return render_template('index.html', async_mode=socketio.async_mode)
 

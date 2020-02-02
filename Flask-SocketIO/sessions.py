@@ -4,6 +4,8 @@ from flask_login import LoginManager, UserMixin, current_user, login_user, \
 from flask_session import Session
 from flask_socketio import SocketIO, emit
 
+# 登录状态
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'top-secret!'
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -31,7 +33,7 @@ def index():
 def session_access():
     if request.method == 'GET':
         return jsonify({
-            'session': session.get('value', ''),
+            'session': session.get('value', 'default'),
             'user': current_user.id
                 if current_user.is_authenticated else 'anonymous'
         })
@@ -49,7 +51,7 @@ def session_access():
 @socketio.on('get-session')
 def get_session():
     emit('refresh-session', {
-        'session': session.get('value', ''),
+        'session': session.get('value', 'default'),
         'user': current_user.id
             if current_user.is_authenticated else 'anonymous'
     })
@@ -67,4 +69,4 @@ def set_session(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app)
+    socketio.run(app,debug=True,use_reloader=True)

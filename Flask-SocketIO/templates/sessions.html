@@ -3,8 +3,8 @@
         <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Flask-SocketIO Sessions example</title>
-        <script src="//code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+        <script src="/static/jquery-1.12.4.min.js" crossorigin="anonymous"></script>
+        <script src="/static/socket.io.js" crossorigin="anonymous"></script>
     </head>
     <body>
         <div class="pure-g">
@@ -128,7 +128,7 @@
             window.setInterval(function() {
                 if (socket)
                     socket.emit('get-session');
-            }, 1000);
+            }, 10000);
 
             $('#submit-socketio').click(function() {
                 socket.emit('set-session', {session: $('#socketio-session-set').val()});
