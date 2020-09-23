@@ -2,5 +2,5 @@ Flask==0.10.1
 Flask-SQLAlchemy==1.0
 Flask-Script==0.6.6
 SQLAlchemy==0.9.9
-gunicorn==18.0
+gunicorn==19.5.0
 psycopg2==2.5.1
