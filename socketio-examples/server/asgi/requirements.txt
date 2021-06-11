@@ -6,4 +6,4 @@ python_socketio
 six==1.11.0
 uvicorn==0.7.0
 uvloop==0.12.2
-websockets==7.0
+websockets==9.1
